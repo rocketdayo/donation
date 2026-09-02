@@ -37,6 +37,8 @@ service cloud.firestore {
         && (!('registeredAt' in data) || (data.registeredAt is string && data.registeredAt.size() <= 50))
         && (!('arrivedAt' in data) || (data.arrivedAt is string && data.arrivedAt.size() <= 50))
         && (!('calledAt' in data) || (data.calledAt is string && data.calledAt.size() <= 50))
+        && (!('calledTimestamp' in data) || data.calledTimestamp is number)
+        && (!('callCount' in data) || data.callCount is number)
         && (!('completedAt' in data) || (data.completedAt is string && data.completedAt.size() <= 50))
         && (!('notes' in data) || (data.notes is string && data.notes.size() <= 500));
     }

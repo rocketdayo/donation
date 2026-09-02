@@ -30,14 +30,8 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
   if (!isOpen || !ticket) return null;
 
   const handleTestPushNotification = async () => {
-    sounds.playCallingChime();
-    await NotificationManager.sendPushNotification(
-      ticket.id,
-      ticket.email,
-      ticket.name,
-      `【献血整理券】#${ticket.ticketNumber} まもなく受付です`,
-      `${ticket.name}様、ご予約時間(${ticket.timeSlot})になりました。受付カウンターへお越しください。`
-    );
+    sounds.unlock();
+    await NotificationManager.sendCallNotification(ticket);
     setNotifSent(true);
     setTimeout(() => setNotifSent(false), 4000);
   };

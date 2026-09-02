@@ -125,6 +125,44 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
     return tickets.find(t => t.email.trim().toLowerCase() === target) || null;
   }, [tickets, userEmail]);
 
+  // Track last alerted ticket call event to avoid infinite looping while alerting on every real call/re-call
+  const lastAlertRef = React.useRef<{ id: string; status: string; timestamp: number }>({
+    id: '',
+    status: '',
+    timestamp: 0
+  });
+
+  useEffect(() => {
+    if (!currentTicket) return;
+
+    const prev = lastAlertRef.current;
+    const isSameTicket = prev.id === currentTicket.id;
+    const isCalled = currentTicket.queueStatus === 'called';
+    const hasNewTimestamp = Boolean(
+      currentTicket.calledTimestamp && 
+      currentTicket.calledTimestamp > prev.timestamp
+    );
+    const hasStatusTransition = isCalled && prev.status !== 'called';
+
+    // When newly called or re-broadcasted from admin
+    if (isCalled && (!isSameTicket || hasStatusTransition || hasNewTimestamp)) {
+      lastAlertRef.current = {
+        id: currentTicket.id,
+        status: currentTicket.queueStatus,
+        timestamp: currentTicket.calledTimestamp || Date.now()
+      };
+
+      // Trigger full call alerts: Sound Chime + Speech Announcement + Phone Vibration + System Notification Bar
+      NotificationManager.sendCallNotification(currentTicket);
+    } else {
+      lastAlertRef.current = {
+        id: currentTicket.id,
+        status: currentTicket.queueStatus,
+        timestamp: currentTicket.calledTimestamp || prev.timestamp
+      };
+    }
+  }, [currentTicket?.id, currentTicket?.queueStatus, currentTicket?.calledTimestamp]);
+
   // Handle email lookup / verification submission
   const handleVerifyEmail = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -242,14 +280,8 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
 
   const handleTestPush = async () => {
     if (!currentTicket) return;
-    sounds.playCallingChime();
-    await NotificationManager.sendPushNotification(
-      currentTicket.id,
-      currentTicket.email,
-      currentTicket.name,
-      `【献血呼出】整理券番号 #${currentTicket.ticketNumber} の番です`,
-      `${currentTicket.name}様、献血受付カウンターへお越しください。`
-    );
+    sounds.unlock();
+    await NotificationManager.sendCallNotification(currentTicket);
     setNotifSent(true);
     setTimeout(() => setNotifSent(false), 4000);
   };

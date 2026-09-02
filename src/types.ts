@@ -32,6 +32,8 @@ export interface TicketRecord {
   registeredAt?: string;
   arrivedAt?: string;      // 受付時刻
   calledAt?: string;       // 呼出時刻
+  calledTimestamp?: number;// 呼出タイムスタンプ (ミリ秒) - リアルタイム通知トリガー用
+  callCount?: number;      // 呼出回数
   completedAt?: string;    // 完了時刻
   notes?: string;          // 備考
 }

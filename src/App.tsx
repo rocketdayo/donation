@@ -144,18 +144,30 @@ export const App: React.FC = () => {
     return () => clearInterval(intervalTimer);
   }, [syncSettings?.sheetUrl, syncSettings?.autoSync, syncSettings?.intervalSec]);
 
+  // Audio Context unlock on initial user gesture (crucial for mobile audio/speech)
+  useEffect(() => {
+    const handleGesture = () => {
+      sounds.unlock();
+    };
+    window.addEventListener('click', handleGesture, { passive: true });
+    window.addEventListener('touchstart', handleGesture, { passive: true });
+    return () => {
+      window.removeEventListener('click', handleGesture);
+      window.removeEventListener('touchstart', handleGesture);
+    };
+  }, []);
+
   // Request Notification Permission
   const handleRequestNotification = async () => {
-    const granted = await NotificationManager.requestPermission();
-    if (granted) {
-      setNotificationPermission('granted');
+    sounds.unlock();
+    const perm = await NotificationManager.requestPermission();
+    setNotificationPermission(perm);
+    if (perm === 'granted') {
       sounds.playCallingChime();
       await NotificationManager.sendLocalNotification(
         '【献血整理券】通知が有効化されました',
-        'お呼び出し時に端末へ通知が届きます。'
+        'お呼び出し時に端末の通知欄へお知らせが届きます。'
       );
-    } else {
-      setNotificationPermission('denied');
     }
   };
 
