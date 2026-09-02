@@ -6,7 +6,8 @@ import {
 import { 
   loadTicketsFromStorage, 
   saveTicketsToStorage, 
-  SAMPLE_TICKETS 
+  SAMPLE_TICKETS,
+  INITIAL_TICKETS
 } from './utils/storage';
 import { sounds } from './utils/audio';
 import { NotificationManager } from './utils/notifications';
@@ -48,6 +49,12 @@ export const App: React.FC = () => {
 
     const unsubscribe = subscribeToTickets(
       (firestoreTickets) => {
+        // Automatically migrate legacy sample records in Firestore to user's real initial sheet data
+        const isLegacySample = firestoreTickets.some(t => t.id === 'TK-001' && t.name === '佐藤 健一');
+        if (isLegacySample) {
+          syncAllTicketsToFirestore(INITIAL_TICKETS);
+          return;
+        }
         setTickets(firestoreTickets);
         saveTicketsToStorage(firestoreTickets);
         setIsFirebaseConnected(true);

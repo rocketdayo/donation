@@ -81,7 +81,14 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
 
           {/* Attendee Name */}
           <div className="mt-4 pt-4 border-t border-slate-800">
-            <h4 className="text-2xl font-bold tracking-tight">{ticket.name} 様</h4>
+            <div className="flex items-center gap-2">
+              <h4 className="text-2xl font-bold tracking-tight">{ticket.name} 様</h4>
+              {ticket.attribute && (
+                <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-slate-300 text-xs font-semibold">
+                  {ticket.attribute}
+                </span>
+              )}
+            </div>
             {ticket.kana && <p className="text-xs text-slate-400">{ticket.kana}</p>}
           </div>
 

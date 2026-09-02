@@ -25,6 +25,7 @@ export interface TicketRecord {
   scheduledDate: string;   // 予定日
   attendance: AttendanceStatus;
   queueStatus: QueueStatus;
+  attribute?: string;      // 属性 (e.g. "生徒", "教員", "保護者", "一般")
   bloodType?: string;      // 血液型 (任意)
   donationType?: string;   // 200mL / 400mL / 成分献血
   firstTimeDonor?: boolean;

@@ -204,7 +204,14 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
                   </div>
 
                   <div className="mt-2">
-                    <h4 className="text-sm font-bold text-slate-900">{ticket.name}</h4>
+                    <div className="flex items-center gap-1.5">
+                      <h4 className="text-sm font-bold text-slate-900">{ticket.name}</h4>
+                      {ticket.attribute && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 border border-slate-200 text-slate-700">
+                          {ticket.attribute}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-[11px] text-slate-500 mt-0.5 truncate">{ticket.email}</p>
                   </div>
                 </div>

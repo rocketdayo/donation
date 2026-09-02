@@ -3,17 +3,8 @@
  */
 import { TicketRecord, AttendanceStatus, QueueStatus } from '../types';
 
-export const DEFAULT_SHEET_CSV_TEMPLATE = `整理券番号,氏名,メールアドレス,予約時間帯,出席状況,備考
-1,佐藤 健一,kenichi.sato@example.com,09:00 - 09:30,完了,採血完了
-2,高橋 涼介,ryosuke.takahashi@example.com,09:00 - 09:30,出席,休憩中
-3,伊藤 陽菜,haruna.ito@example.com,09:00 - 09:30,出席,採血中
-4,渡辺 浩二,koji.watanabe@example.com,09:00 - 09:30,出席,問診室へ案内
-5,中村 蓮,rocket3141592653589@gmail.com,09:30 - 10:00,出席,受付呼出中
-6,小林 美咲,misaki.kobayashi@example.com,09:30 - 10:00,出席,待機中
-7,松本 健二,kenji.matsumoto@example.com,09:30 - 10:00,未受付,
-8,加藤 結衣,yui.kato@example.com,09:30 - 10:00,欠席,体調不良連絡あり
-9,井上 拓海,takumi.inoue@example.com,10:00 - 10:30,未受付,
-10,木村 恵美子,emiko.kimura@example.com,10:00 - 10:30,未受付,`;
+export const DEFAULT_SHEET_CSV_TEMPLATE = `時間,メアド,名前,属性
+8:30,s25583@stu.seikyo.ed.jp,黒田悠人,生徒`;
 
 export function parseCSVToTickets(csvText: string): TicketRecord[] {
   const lines = csvText.trim().split(/\r?\n/);
@@ -27,17 +18,20 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
   const headers = parseCSVLine(headerLine);
 
   let numIdx = headers.findIndex(h => h.includes('番号') || h.includes('number') || h.includes('no') || h.includes('id'));
-  let nameIdx = headers.findIndex(h => h.includes('氏名') || h.includes('名前') || h.includes('name'));
-  let emailIdx = headers.findIndex(h => h.includes('メール') || h.includes('email') || h.includes('mail') || h.includes('アドレス'));
-  let slotIdx = headers.findIndex(h => h.includes('時間') || h.includes('スロット') || h.includes('slot') || h.includes('予約'));
+  let nameIdx = headers.findIndex(h => h.includes('名前') || h.includes('氏名') || h.includes('name') || h.includes('受診者') || h.includes('生徒'));
+  let emailIdx = headers.findIndex(h => h.includes('メアド') || h.includes('メール') || h.includes('email') || h.includes('mail') || h.includes('アドレス'));
+  let slotIdx = headers.findIndex(h => h.includes('時間') || h.includes('スロット') || h.includes('slot') || h.includes('予約') || h.includes('time'));
+  let attrIdx = headers.findIndex(h => h.includes('属性') || h.includes('区分') || h.includes('所属') || h.includes('役職') || h.includes('role') || h.includes('attribute') || h.includes('type'));
   let attendIdx = headers.findIndex(h => h.includes('出席') || h.includes('状況') || h.includes('status') || h.includes('attend'));
   let notesIdx = headers.findIndex(h => h.includes('備考') || h.includes('メモ') || h.includes('note'));
 
-  // Fallbacks if header names are standard positional
-  if (numIdx === -1) numIdx = 0;
-  if (nameIdx === -1) nameIdx = 1;
-  if (emailIdx === -1) emailIdx = 2;
-  if (slotIdx === -1) slotIdx = 3;
+  // Positional fallback for 4-column format: [時間, メアド, 名前, 属性]
+  if (headers.length === 4 && slotIdx === -1 && emailIdx === -1 && nameIdx === -1) {
+    slotIdx = 0;
+    emailIdx = 1;
+    nameIdx = 2;
+    attrIdx = 3;
+  }
 
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -46,10 +40,28 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
     const cols = parseCSVLine(line);
     if (cols.length < 2) continue;
 
-    const rawNum = parseInt(cols[numIdx] || '', 10) || i;
-    const name = cols[nameIdx]?.trim() || `来場者${rawNum}`;
+    // Determine sequential number if no explicit ticket number column
+    let rawNum = i;
+    if (numIdx >= 0 && cols[numIdx]) {
+      const parsedNum = parseInt(cols[numIdx], 10);
+      if (!isNaN(parsedNum)) {
+        rawNum = parsedNum;
+      }
+    }
+
+    const name = (nameIdx >= 0 && cols[nameIdx]) ? cols[nameIdx].trim() : `受診者${rawNum}`;
     const email = (emailIdx >= 0 && cols[emailIdx]) ? cols[emailIdx].trim() : '';
-    const timeSlot = (slotIdx >= 0 && cols[slotIdx]) ? cols[slotIdx].trim() : '09:00 - 09:30';
+    
+    // Time slot normalization (e.g., "8:30" -> "08:30" or "08:30 - 09:00")
+    let rawSlot = (slotIdx >= 0 && cols[slotIdx]) ? cols[slotIdx].trim() : '08:30';
+    if (/^\d{1,2}:\d{2}$/.test(rawSlot)) {
+      const [h, m] = rawSlot.split(':');
+      const startH = h.padStart(2, '0');
+      rawSlot = `${startH}:${m}`;
+    }
+    const timeSlot = rawSlot;
+
+    const attribute = (attrIdx >= 0 && cols[attrIdx]) ? cols[attrIdx].trim() : undefined;
     const rawAttendance = (attendIdx >= 0 && cols[attendIdx]) ? cols[attendIdx].trim() : '未受付';
     const notes = (notesIdx >= 0 && cols[notesIdx]) ? cols[notesIdx].trim() : '';
 
@@ -73,6 +85,7 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
       name,
       email,
       timeSlot,
+      attribute,
       scheduledDate: today,
       attendance,
       queueStatus,
@@ -104,7 +117,7 @@ function parseCSVLine(text: string): string[] {
 }
 
 export function exportTicketsToCSV(tickets: TicketRecord[]): string {
-  const headers = ['整理券番号', '氏名', 'メールアドレス', '予約時間帯', '出席状況', '進行状況', '呼出時刻', '受付時刻', '備考'];
+  const headers = ['整理券番号', '氏名', 'メールアドレス', '予約時間帯', '属性', '出席状況', '進行状況', '呼出時刻', '受付時刻', '備考'];
 
   const attendanceLabel: Record<AttendanceStatus, string> = {
     unattended: '未受付',
@@ -128,6 +141,7 @@ export function exportTicketsToCSV(tickets: TicketRecord[]): string {
     `"${t.name.replace(/"/g, '""')}"`,
     `"${t.email.replace(/"/g, '""')}"`,
     `"${t.timeSlot.replace(/"/g, '""')}"`,
+    `"${(t.attribute || '').replace(/"/g, '""')}"`,
     attendanceLabel[t.attendance] || t.attendance,
     queueLabel[t.queueStatus] || t.queueStatus,
     t.calledAt || '',

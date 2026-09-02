@@ -30,6 +30,7 @@ service cloud.firestore {
         && (!('scheduledDate' in data) || (data.scheduledDate is string && data.scheduledDate.size() <= 50))
         && data.attendance in ['unattended', 'present', 'absent', 'completed']
         && data.queueStatus in ['waiting', 'called', 'interview', 'donating', 'resting', 'done', 'absent']
+        && (!('attribute' in data) || (data.attribute is string && data.attribute.size() <= 100))
         && (!('bloodType' in data) || (data.bloodType is string && data.bloodType.size() <= 20))
         && (!('donationType' in data) || (data.donationType is string && data.donationType.size() <= 50))
         && (!('firstTimeDonor' in data) || data.firstTimeDonor is bool)

@@ -12,7 +12,12 @@ export const TimeSlotGrid: React.FC<TimeSlotGridProps> = ({
 }) => {
   const SLOT_CAPACITY = 8;
 
-  const slotStats = TIME_SLOTS.map(slot => {
+  // Extract all unique slots from tickets or default TIME_SLOTS
+  const allUniqueSlots = Array.from(
+    new Set([...tickets.map(t => t.timeSlot).filter(Boolean), ...TIME_SLOTS])
+  ).sort((a, b) => a.localeCompare(b));
+
+  const slotStats = allUniqueSlots.map(slot => {
     const slotTickets = tickets.filter(t => t.timeSlot === slot);
     const reserved = slotTickets.length;
     const present = slotTickets.filter(t => t.attendance === 'present').length;

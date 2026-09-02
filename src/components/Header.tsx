@@ -55,9 +55,12 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center justify-between gap-4">
           {/* Logo & Title */}
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-slate-900 text-white flex-shrink-0 shadow-xs">
-              <HeartHandshake className="w-4 h-4 text-rose-500" />
-            </div>
+            <img 
+              src="/donation_icon.jpg" 
+              alt="献血ロゴ" 
+              className="w-9 h-9 rounded-xl object-contain object-center border border-slate-200 bg-white p-0.5 shadow-xs flex-shrink-0" 
+              referrerPolicy="no-referrer" 
+            />
             <div className="min-w-0">
               <h1 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight flex items-center gap-2 truncate">
                 献血整理券＆受付管理システム

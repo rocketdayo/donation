@@ -237,7 +237,7 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
                 rows={5}
                 value={csvInput}
                 onChange={(e) => setCsvInput(e.target.value)}
-                placeholder={`整理券番号,氏名,メールアドレス,予約時間帯,出席状況,備考\n1,佐藤 健一,kenichi@example.com,09:00 - 09:30,出席,`}
+                placeholder={`時間,メアド,名前,属性\n8:30,s25583@stu.seikyo.ed.jp,黒田悠人,生徒`}
                 className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-mono focus:outline-hidden focus:ring-2 focus:ring-slate-400"
               />
               <button

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { TicketRecord } from '../types';
 import { 
   Search, 
@@ -12,10 +12,22 @@ import {
   ChevronRight,
   Send,
   Sparkles,
-  QrCode
+  QrCode,
+  Smartphone,
+  Share,
+  MoreVertical,
+  ChevronDown,
+  ChevronUp,
+  Download,
+  PlusSquare,
+  Info,
+  LogOut,
+  ArrowRight,
+  Check
 } from 'lucide-react';
 import { NotificationManager } from '../utils/notifications';
 import { sounds } from '../utils/audio';
+import { auth } from '../firebase';
 
 interface MyTicketViewProps {
   tickets: TicketRecord[];
@@ -24,36 +36,129 @@ interface MyTicketViewProps {
   onSwitchToAdmin?: () => void;
 }
 
+const STORAGE_EMAIL_KEY = 'blood_donation_user_email';
+
 export const MyTicketView: React.FC<MyTicketViewProps> = ({
   tickets,
   notificationPermission,
   onReqNotifications,
   onSwitchToAdmin
 }) => {
-  // Email search or ticket selector
-  const [searchEmail, setSearchEmail] = useState('');
-  const [selectedTicketId, setSelectedTicketId] = useState<string>(() => {
-    // Default to the first active or called ticket, or ticket #5
-    const called = tickets.find(t => t.queueStatus === 'called');
-    if (called) return called.id;
-    return tickets[4]?.id || tickets[0]?.id || '';
+  // Saved or verified user email
+  const [userEmail, setUserEmail] = useState<string>(() => {
+    if (typeof window === 'undefined') return '';
+    // 1. Check URL query params
+    const params = new URLSearchParams(window.location.search);
+    const queryEmail = params.get('email') || params.get('mail');
+    if (queryEmail) return queryEmail.trim().toLowerCase();
+    
+    // 2. Check localStorage
+    const stored = localStorage.getItem(STORAGE_EMAIL_KEY);
+    if (stored) return stored.trim().toLowerCase();
+
+    // 3. Check Firebase Auth user if available
+    if (auth.currentUser?.email) return auth.currentUser.email.trim().toLowerCase();
+
+    return '';
   });
+
+  // Input state for email verification form
+  const [inputEmail, setInputEmail] = useState('');
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+
   const [notifSent, setNotifSent] = useState(false);
+  const [showPwaGuide, setShowPwaGuide] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isStandalone, setIsStandalone] = useState(false);
 
-  // Filter or match by email input
-  const matchedTicketsByEmail = useMemo(() => {
-    const query = searchEmail.trim().toLowerCase();
-    if (!query) return [];
-    return tickets.filter(t => t.email.toLowerCase().includes(query) || t.name.toLowerCase().includes(query));
-  }, [tickets, searchEmail]);
+  // Sync auth state if signed in
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user?.email && !userEmail) {
+        const email = user.email.trim().toLowerCase();
+        setUserEmail(email);
+        localStorage.setItem(STORAGE_EMAIL_KEY, email);
+      }
+    });
+    return () => unsubscribe();
+  }, [userEmail]);
 
-  // Current active ticket
-  const currentTicket = useMemo(() => {
-    if (matchedTicketsByEmail.length > 0) {
-      return matchedTicketsByEmail[0];
+  // PWA standalone and beforeinstallprompt detection
+  useEffect(() => {
+    if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
+      setIsStandalone(true);
     }
-    return tickets.find(t => t.id === selectedTicketId) || tickets[0];
-  }, [tickets, selectedTicketId, matchedTicketsByEmail]);
+
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', () => {
+      setIsStandalone(true);
+      setDeferredPrompt(null);
+    });
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+      }
+    } else {
+      setShowPwaGuide(prev => !prev);
+    }
+  };
+
+  // Find ticket matching the verified user email
+  const currentTicket = useMemo(() => {
+    if (!userEmail) return null;
+    const target = userEmail.trim().toLowerCase();
+    return tickets.find(t => t.email.trim().toLowerCase() === target) || null;
+  }, [tickets, userEmail]);
+
+  // Handle email lookup / verification submission
+  const handleVerifyEmail = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setVerifyError(null);
+    const target = inputEmail.trim().toLowerCase();
+    if (!target) {
+      setVerifyError('メールアドレスを入力してください');
+      return;
+    }
+
+    setIsVerifying(true);
+    setTimeout(() => {
+      const match = tickets.find(t => t.email.trim().toLowerCase() === target);
+      if (match) {
+        setUserEmail(target);
+        localStorage.setItem(STORAGE_EMAIL_KEY, target);
+        sounds.playSuccessChime();
+        setVerifyError(null);
+      } else {
+        setVerifyError(`メールアドレス「${inputEmail}」に一致する献血予約・整理券が見つかりませんでした。入力内容をご確認ください。`);
+        sounds.playClick();
+      }
+      setIsVerifying(false);
+    }, 300);
+  };
+
+  // Switch or clear email verification
+  const handleResetEmail = () => {
+    setUserEmail('');
+    localStorage.removeItem(STORAGE_EMAIL_KEY);
+    setInputEmail('');
+    setVerifyError(null);
+    sounds.playClick();
+  };
 
   // Currently called tickets
   const currentlyCalled = tickets.filter(t => t.queueStatus === 'called');
@@ -151,45 +256,176 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
 
   return (
     <div className="max-w-xl mx-auto space-y-5 px-1 py-2">
-      {/* Search / Email Match Input */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs">
-        <label className="block text-xs font-semibold text-slate-700 mb-2">
-          登録メールアドレスまたはお名前で整理券を照会:
-        </label>
-        <div className="relative">
-          <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchEmail}
-            onChange={(e) => setSearchEmail(e.target.value)}
-            placeholder="例: email@example.com または 氏名"
-            className="w-full pl-9 pr-4 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-rose-900/20 focus:border-rose-900 transition"
-          />
-        </div>
+      {/* 1. IF NO MATCHED TICKET: SHOW EMAIL VERIFICATION FORM (メアド照合欄) */}
+      {!currentTicket ? (
+        <div className="space-y-4">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 shadow-xs space-y-5">
+            <div className="text-center space-y-1.5">
+              <div className="inline-flex p-3 rounded-2xl bg-rose-50 text-rose-600 border border-rose-100 mb-1">
+                <Mail className="w-6 h-6" />
+              </div>
+              <h2 className="text-lg sm:text-xl font-bold text-slate-900">
+                整理券の照会・ログイン
+              </h2>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+                献血の予約時に登録したメールアドレスを入力して、ご自身の整理券を表示してください。
+              </p>
+            </div>
 
-        {/* Quick select dropdown if not searching */}
-        <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
-          <span className="text-[11px] text-slate-500">整理券一覧から選択:</span>
-          <select
-            value={currentTicket?.id || ''}
-            onChange={(e) => {
-              setSelectedTicketId(e.target.value);
-              setSearchEmail('');
-              sounds.playClick();
-            }}
-            className="text-xs font-medium text-slate-700 bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 focus:outline-hidden cursor-pointer max-w-[240px] truncate"
-          >
-            {tickets.map(t => (
-              <option key={t.id} value={t.id}>
-                #{String(t.ticketNumber).padStart(2, '0')} {t.name} ({t.timeSlot})
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+            {/* Form */}
+            <form onSubmit={handleVerifyEmail} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  メールアドレス
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="email"
+                    required
+                    value={inputEmail}
+                    onChange={(e) => {
+                      setInputEmail(e.target.value);
+                      if (verifyError) setVerifyError(null);
+                    }}
+                    placeholder="例: s25583@stu.seikyo.ed.jp"
+                    className="w-full pl-9 pr-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition"
+                  />
+                </div>
+              </div>
 
-      {currentTicket && statusInfo && (
+              {verifyError && (
+                <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-900 flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+                  <span className="leading-relaxed">{verifyError}</span>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isVerifying}
+                className="w-full py-3 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm transition flex items-center justify-center gap-2 shadow-xs cursor-pointer disabled:opacity-50"
+              >
+                {isVerifying ? (
+                  <span>照合中...</span>
+                ) : (
+                  <>
+                    <span>整理券を表示する</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Quick Demo Assist for Testing */}
+            {tickets.length > 0 && (
+              <div className="pt-3 border-t border-slate-100 text-center">
+                <p className="text-[11px] text-slate-400 mb-2">登録例でテスト照合:</p>
+                <div className="flex flex-wrap items-center justify-center gap-1.5">
+                  {tickets.slice(0, 3).map(t => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => {
+                        setInputEmail(t.email);
+                        setVerifyError(null);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] font-medium transition"
+                    >
+                      {t.name} ({t.email})
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Standalone Install Promotion Card */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-2xl bg-slate-100 text-slate-800 flex-shrink-0">
+                <Smartphone className="w-5 h-5 text-rose-600" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-slate-900">
+                  ホーム画面に追加してアプリ化
+                </h4>
+                <p className="text-[11px] text-slate-500">
+                  アプリ化すると呼出通知を逃さず確認できます
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleInstallClick}
+              className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs flex-shrink-0"
+            >
+              <Download className="w-3.5 h-3.5" />
+              インストール
+            </button>
+          </div>
+
+          {/* Guide Modal / Dropdown if toggled */}
+          {showPwaGuide && (
+            <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-3 text-xs">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <h4 className="font-bold text-slate-900 flex items-center gap-1.5">
+                  <Smartphone className="w-4 h-4 text-rose-600" />
+                  ホーム画面への追加手順（PWA）
+                </h4>
+                <button
+                  onClick={() => setShowPwaGuide(false)}
+                  className="text-xs text-slate-400 hover:text-slate-700"
+                >
+                  閉じる
+                </button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/90 space-y-2">
+                  <div className="font-bold text-slate-900 text-xs">
+                    iPhone / iPad (Safari)
+                  </div>
+                  <ol className="space-y-1 text-[11px] text-slate-600 pl-4 list-decimal leading-relaxed">
+                    <li>画面下部の「<strong>共有ボタン</strong>」（<Share className="w-3 h-3 inline" />）をタップ</li>
+                    <li>「<strong>ホーム画面に追加</strong>」（<PlusSquare className="w-3 h-3 inline" />）を選択</li>
+                    <li>右上の「<strong>追加</strong>」をタップ</li>
+                  </ol>
+                </div>
+                <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/90 space-y-2">
+                  <div className="font-bold text-slate-900 text-xs">
+                    Android (Chrome)
+                  </div>
+                  <ol className="space-y-1 text-[11px] text-slate-600 pl-4 list-decimal leading-relaxed">
+                    <li>画面右上の「<strong>メニュー（︙）</strong>」をタップ</li>
+                    <li>「<strong>アプリをインストール</strong>」または「<strong>ホーム画面に追加</strong>」を選択</li>
+                    <li>「<strong>インストール</strong>」をタップ</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* 2. MATCHED TICKET: DISPLAY USER'S PERSONAL TICKET ONLY */
         <>
+          {/* Active Email Bar with Option to Change */}
+          <div className="bg-white border border-slate-200/90 rounded-2xl px-4 py-2.5 shadow-xs flex items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+              <span className="text-slate-500 flex-shrink-0">照合中:</span>
+              <span className="font-semibold text-slate-800 truncate">
+                {currentTicket.email}
+              </span>
+            </div>
+            <button
+              onClick={handleResetEmail}
+              className="px-2.5 py-1 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 text-[11px] font-medium transition flex items-center gap-1 flex-shrink-0"
+              title="別のアドレスで照合する"
+            >
+              <LogOut className="w-3 h-3" />
+              <span>別のアドレスで照合</span>
+            </button>
+          </div>
+
           {/* Main Elegantly Designed Ticket Card */}
           <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
             {/* Upper Premium Header */}
@@ -205,9 +441,11 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
                 </div>
 
                 {/* Status Badge */}
-                <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide shadow-xs ${statusInfo.bgClass}`}>
-                  {statusInfo.badge}
-                </span>
+                {statusInfo && (
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide shadow-xs ${statusInfo.bgClass}`}>
+                    {statusInfo.badge}
+                  </span>
+                )}
               </div>
 
               {/* Huge Clean Ticket Number */}
@@ -225,8 +463,14 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4 border-b border-slate-100">
                 <div>
                   <div className="text-xs text-slate-400 font-medium">お名前</div>
-                  <div className="text-xl font-bold text-slate-900 mt-0.5">
-                    {currentTicket.name} <span className="text-xs font-normal text-slate-500">様</span>
+                  <div className="text-xl font-bold text-slate-900 mt-0.5 flex items-center gap-2">
+                    <span>{currentTicket.name}</span>
+                    <span className="text-xs font-normal text-slate-500">様</span>
+                    {currentTicket.attribute && (
+                      <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-semibold">
+                        {currentTicket.attribute}
+                      </span>
+                    )}
                   </div>
                   {currentTicket.kana && (
                     <div className="text-[11px] text-slate-400">{currentTicket.kana}</div>
@@ -248,37 +492,39 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
               </div>
 
               {/* Progress & Current Call Status Box */}
-              <div className={`p-4 rounded-2xl border ${statusInfo.cardBg} ${statusInfo.borderClass} space-y-2`}>
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-rose-700" />
-                    現在の進行状況
+              {statusInfo && (
+                <div className={`p-4 rounded-2xl border ${statusInfo.cardBg} ${statusInfo.borderClass} space-y-2`}>
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-rose-700" />
+                      現在の進行状況
+                    </div>
+                    <span className="text-xs font-semibold text-slate-600">
+                      {statusInfo.title}
+                    </span>
                   </div>
-                  <span className="text-xs font-semibold text-slate-600">
-                    {statusInfo.title}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  {statusInfo.description}
-                </p>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    {statusInfo.description}
+                  </p>
 
-                {/* Live Call Reference */}
-                <div className="mt-3 pt-2.5 border-t border-slate-200/60 flex items-center justify-between text-xs">
-                  <span className="text-slate-500">現在のお呼出番号:</span>
-                  <span className="font-bold text-slate-900">
-                    {currentlyCalled.length > 0 
-                      ? currentlyCalled.map(c => `#${c.ticketNumber}`).join(', ')
-                      : '現在呼出なし'}
-                  </span>
-                </div>
-
-                {currentTicket.queueStatus === 'waiting' && myQueuePosition > 0 && (
-                  <div className="flex items-center justify-between text-xs pt-1">
-                    <span className="text-slate-500">あなたの前の待機人数:</span>
-                    <span className="font-bold text-slate-900">あと {myQueuePosition - 1} 名</span>
+                  {/* Live Call Reference */}
+                  <div className="mt-3 pt-2.5 border-t border-slate-200/60 flex items-center justify-between text-xs">
+                    <span className="text-slate-500">現在のお呼出番号:</span>
+                    <span className="font-bold text-slate-900">
+                      {currentlyCalled.length > 0 
+                        ? currentlyCalled.map(c => `#${c.ticketNumber}`).join(', ')
+                        : '現在呼出なし'}
+                    </span>
                   </div>
-                )}
-              </div>
+
+                  {currentTicket.queueStatus === 'waiting' && myQueuePosition > 0 && (
+                    <div className="flex items-center justify-between text-xs pt-1">
+                      <span className="text-slate-500">あなたの前の待機人数:</span>
+                      <span className="font-bold text-slate-900">あと {myQueuePosition - 1} 名</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Optional Donation Type if configured */}
               {(currentTicket.bloodType || currentTicket.donationType) && (
@@ -294,19 +540,20 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
             </div>
           </div>
 
-          {/* Notification Permission Card */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-3">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-slate-100 text-slate-700">
-                  <Bell className="w-4 h-4" />
+          {/* Notification Permission & PWA Installation Card */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-4">
+            {/* Header / Push Notification Status */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-rose-50 text-rose-600 border border-rose-100 flex-shrink-0">
+                  <Bell className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900">
+                  <h4 className="text-sm font-bold text-slate-900">
                     呼出通知（プッシュ通知）
                   </h4>
-                  <p className="text-[11px] text-slate-500">
-                    順番が来ると画面や端末に通知が届きます
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    順番が来るとスマホ画面や通知音でお知らせします
                   </p>
                 </div>
               </div>
@@ -314,10 +561,10 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
               {notificationPermission !== 'granted' ? (
                 <button
                   onClick={onReqNotifications}
-                  className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition flex items-center gap-1 shadow-xs flex-shrink-0"
+                  className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition flex items-center gap-1.5 shadow-xs flex-shrink-0"
                 >
                   <BellRing className="w-3.5 h-3.5" />
-                  通知を有効化
+                  通知を許可
                 </button>
               ) : (
                 <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold flex items-center gap-1 flex-shrink-0">
@@ -327,23 +574,111 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
               )}
             </div>
 
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-              <span className="text-[11px] text-slate-500">端末へのテスト通知:</span>
+            {/* Test Notification Row */}
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">
+              <span className="text-slate-500">呼出音・通知のテスト:</span>
               <button
                 onClick={handleTestPush}
-                className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition flex items-center gap-1"
+                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium transition flex items-center gap-1.5"
               >
-                <Send className="w-3 h-3 text-slate-600" />
+                <Send className="w-3.5 h-3.5 text-slate-600" />
                 テスト通知
               </button>
             </div>
 
             {notifSent && (
-              <p className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
+              <p className="text-xs text-emerald-700 font-semibold flex items-center gap-1 bg-emerald-50 p-2 rounded-xl border border-emerald-100">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                通知を送信しました
+                テスト通知を送信しました。端末をご確認ください。
               </p>
             )}
+
+            {/* PWA / Add to Home Screen Section */}
+            <div className="pt-3 border-t border-slate-100 space-y-3">
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-white border border-slate-200 text-slate-700 shadow-2xs">
+                      <Smartphone className="w-4 h-4 text-rose-500" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        <span>ホーム画面に追加（アプリ化・PWA）</span>
+                        {isStandalone && (
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                            導入済み
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        アプリ化するとブラウザを閉じても通知を受信しやすくなります
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* PROMINENT INSTALL BUTTON */}
+                  <button
+                    onClick={handleInstallClick}
+                    className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs flex-shrink-0 cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>インストール</span>
+                  </button>
+                </div>
+
+                {/* Step-by-Step PWA Installation Guide (Collapsible or Prompted) */}
+                {showPwaGuide && (
+                  <div className="pt-3 border-t border-slate-200/70 space-y-3 text-xs text-slate-600">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* iOS / Safari Guide */}
+                      <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 space-y-2">
+                        <div className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
+                          <span className="w-2 h-2 rounded-full bg-slate-900" />
+                          iPhone / iPad (Safari)
+                        </div>
+                        <ol className="space-y-1.5 text-[11px] text-slate-600 pl-4 list-decimal leading-relaxed">
+                          <li>
+                            画面下部の「<strong>共有ボタン</strong>」（四角から上矢印 <Share className="w-3 h-3 inline text-slate-600" />）をタップ
+                          </li>
+                          <li>
+                            メニューから「<strong>ホーム画面に追加</strong>」（<PlusSquare className="w-3 h-3 inline text-slate-600" />）を選択
+                          </li>
+                          <li>
+                            右上の「<strong>追加</strong>」をタップ
+                          </li>
+                        </ol>
+                      </div>
+
+                      {/* Android / Chrome Guide */}
+                      <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 space-y-2">
+                        <div className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
+                          <span className="w-2 h-2 rounded-full bg-emerald-600" />
+                          Android (Chrome)
+                        </div>
+                        <ol className="space-y-1.5 text-[11px] text-slate-600 pl-4 list-decimal leading-relaxed">
+                          <li>
+                            画面右上の「<strong>メニュー（︙）</strong>」をタップ
+                          </li>
+                          <li>
+                            「<strong>アプリをインストール</strong>」または「<strong>ホーム画面に追加</strong>」を選択
+                          </li>
+                          <li>
+                            画面の指示に従い「<strong>インストール</strong>」をタップ
+                          </li>
+                        </ol>
+                      </div>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-rose-50/60 border border-rose-100/80 text-[11px] text-rose-900 flex items-start gap-2">
+                      <Info className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+                      <span>
+                        ホーム画面のアプリアイコンから開くことで、待機中もフルスクリーンで整理券を確認でき、呼出通知を確実に受け取れます。
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Pre-donation advice */}
