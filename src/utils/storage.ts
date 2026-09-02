@@ -23,17 +23,30 @@ export const TIME_SLOTS = [
 
 export const INITIAL_TICKETS: TicketRecord[] = [
   {
-    id: 'TK-001',
+    id: 'TK-1',
     ticketNumber: 1,
     name: '黒田悠人',
     email: 's25583@stu.seikyo.ed.jp',
-    timeSlot: '08:30',
+    timeSlot: '09:30',
     attribute: '生徒',
     scheduledDate: '2026-09-02',
     attendance: 'present',
     queueStatus: 'waiting',
-    arrivedAt: '08:30',
+    arrivedAt: '09:30',
     notes: ''
+  },
+  {
+    id: 'TK-2',
+    ticketNumber: 2,
+    name: '平松宗一郎',
+    email: 's25719@stu.seikyo.ed.jp',
+    timeSlot: '09:30',
+    attribute: '生徒',
+    scheduledDate: '2026-09-02',
+    attendance: 'present',
+    queueStatus: 'waiting',
+    arrivedAt: '09:40',
+    notes: '元の予約時刻: 9:40'
   }
 ];
 

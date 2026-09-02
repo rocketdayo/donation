@@ -15,8 +15,12 @@ import {
   testConnection, 
   subscribeToTickets, 
   updateFirestoreTicket, 
-  syncAllTicketsToFirestore 
+  syncAllTicketsToFirestore,
+  subscribeToSyncSettings,
+  saveSyncSettings,
+  SyncSettings
 } from './firebase';
+import { fetchGoogleSheetCSV } from './utils/spreadsheet';
 
 // Components
 import { Header } from './components/Header';
@@ -40,6 +44,10 @@ export const App: React.FC = () => {
   // Modals state
   const [isSpreadsheetOpen, setIsSpreadsheetOpen] = useState(false);
   const [detailTicket, setDetailTicket] = useState<TicketRecord | null>(null);
+  const [syncSettings, setSyncSettings] = useState<SyncSettings | null>(() => {
+    const localUrl = localStorage.getItem('blood_donation_sheet_url') || 'https://rocketdayo.github.io/donation/';
+    return { sheetUrl: localUrl, autoSync: true, intervalSec: 60 };
+  });
 
   // Initialize and subscribe to Firestore
   useEffect(() => {
@@ -50,7 +58,7 @@ export const App: React.FC = () => {
     const unsubscribe = subscribeToTickets(
       (firestoreTickets) => {
         // Automatically migrate legacy sample records in Firestore to user's real initial sheet data
-        const isLegacySample = firestoreTickets.some(t => t.id === 'TK-001' && t.name === '佐藤 健一');
+        const isLegacySample = firestoreTickets.length === 0 || firestoreTickets.some(t => t.id === 'TK-001' || t.name === '佐藤 健一');
         if (isLegacySample) {
           syncAllTicketsToFirestore(INITIAL_TICKETS);
           return;
@@ -64,10 +72,77 @@ export const App: React.FC = () => {
       }
     );
 
+    const unsubSettings = subscribeToSyncSettings((settings) => {
+      if (settings) {
+        setSyncSettings(settings);
+      }
+    });
+
     return () => {
       unsubscribe();
+      unsubSettings();
     };
   }, []);
+
+  // Background Periodic Spreadsheet Fetch & Firestore Sync
+  useEffect(() => {
+    if (!syncSettings || !syncSettings.sheetUrl || syncSettings.autoSync === false) return;
+
+    const runAutoFetch = async () => {
+      try {
+        const fetched = await fetchGoogleSheetCSV(syncSettings.sheetUrl);
+        if (fetched && fetched.length > 0) {
+          setTickets((currentTickets) => {
+            // Keep queue status and attendance progress from active state
+            const statusMap = new Map<string, {
+              attendance: TicketRecord['attendance'];
+              queueStatus: TicketRecord['queueStatus'];
+              calledAt?: string;
+              completedAt?: string;
+            }>();
+
+            currentTickets.forEach(c => {
+              statusMap.set(c.id, {
+                attendance: c.attendance,
+                queueStatus: c.queueStatus,
+                calledAt: c.calledAt,
+                completedAt: c.completedAt
+              });
+            });
+
+            const merged: TicketRecord[] = fetched.map(item => {
+              const liveStatus = statusMap.get(item.id);
+              if (liveStatus) {
+                return {
+                  ...item,
+                  attendance: liveStatus.attendance,
+                  queueStatus: liveStatus.queueStatus,
+                  calledAt: liveStatus.calledAt,
+                  completedAt: liveStatus.completedAt
+                };
+              }
+              return item;
+            });
+
+            // Save merged tickets to Firestore so all connected devices update
+            syncAllTicketsToFirestore(merged).catch(e => console.warn('Auto sync firestore write notice:', e));
+            saveTicketsToStorage(merged);
+            return merged;
+          });
+        }
+      } catch (err) {
+        console.warn('Periodic sheet sync error:', err);
+      }
+    };
+
+    // Initial fetch once mounted
+    runAutoFetch();
+
+    const intervalMs = Math.max(15, (syncSettings.intervalSec || 60)) * 1000;
+    const intervalTimer = setInterval(runAutoFetch, intervalMs);
+
+    return () => clearInterval(intervalTimer);
+  }, [syncSettings?.sheetUrl, syncSettings?.autoSync, syncSettings?.intervalSec]);
 
   // Request Notification Permission
   const handleRequestNotification = async () => {

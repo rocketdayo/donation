@@ -25,7 +25,7 @@ service cloud.firestore {
         && data.ticketNumber is number && data.ticketNumber >= 1 && data.ticketNumber <= 100000
         && data.name is string && data.name.size() >= 1 && data.name.size() <= 100
         && (!('kana' in data) || (data.kana is string && data.kana.size() <= 100))
-        && data.email is string && data.email.size() >= 3 && data.email.size() <= 200
+        && data.email is string && data.email.size() <= 200
         && data.timeSlot is string && data.timeSlot.size() <= 50
         && (!('scheduledDate' in data) || (data.scheduledDate is string && data.scheduledDate.size() <= 50))
         && data.attendance in ['unattended', 'present', 'absent', 'completed']
@@ -43,6 +43,11 @@ service cloud.firestore {
 
     // Connection test document
     match /test/{testId} {
+      allow read, write: if true;
+    }
+
+    // App settings and sync configuration
+    match /settings/{settingId} {
       allow read, write: if true;
     }
 

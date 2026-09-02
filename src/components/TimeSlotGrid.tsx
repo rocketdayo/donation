@@ -1,6 +1,7 @@
 import React from 'react';
 import { TicketRecord } from '../types';
 import { TIME_SLOTS } from '../utils/storage';
+import { normalizeTimeSlot } from '../utils/spreadsheet';
 import { Clock } from 'lucide-react';
 
 interface TimeSlotGridProps {
@@ -12,13 +13,16 @@ export const TimeSlotGrid: React.FC<TimeSlotGridProps> = ({
 }) => {
   const SLOT_CAPACITY = 8;
 
-  // Extract all unique slots from tickets or default TIME_SLOTS
+  // Extract all unique slots from tickets or default TIME_SLOTS (normalized to 30-min windows)
   const allUniqueSlots = Array.from(
-    new Set([...tickets.map(t => t.timeSlot).filter(Boolean), ...TIME_SLOTS])
+    new Set([
+      ...tickets.map(t => normalizeTimeSlot(t.timeSlot).slot).filter(Boolean),
+      ...TIME_SLOTS
+    ])
   ).sort((a, b) => a.localeCompare(b));
 
   const slotStats = allUniqueSlots.map(slot => {
-    const slotTickets = tickets.filter(t => t.timeSlot === slot);
+    const slotTickets = tickets.filter(t => normalizeTimeSlot(t.timeSlot).slot === slot);
     const reserved = slotTickets.length;
     const present = slotTickets.filter(t => t.attendance === 'present').length;
     const completed = slotTickets.filter(t => t.attendance === 'completed').length;
@@ -168,7 +172,7 @@ export const TimeSlotGrid: React.FC<TimeSlotGridProps> = ({
                             : 'bg-slate-50 text-slate-600 border border-slate-200'
                         }`}
                       >
-                        #{String(t.ticketNumber).padStart(2, '0')} {t.name}
+                        #{t.ticketNumber} {t.name}
                       </span>
                     ))}
                   </div>

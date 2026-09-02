@@ -157,6 +157,39 @@ export async function setFirestoreTicket(ticket: TicketRecord): Promise<void> {
   }
 }
 
+// App settings doc interface
+export interface SyncSettings {
+  sheetUrl: string;
+  autoSync: boolean;
+  intervalSec: number;
+  lastSyncedAt?: string;
+  lastSyncCount?: number;
+}
+
+// Subscribe to global sync settings
+export function subscribeToSyncSettings(
+  onUpdate: (settings: SyncSettings | null) => void
+): Unsubscribe {
+  const settingsRef = doc(db, 'settings', 'spreadsheet_sync');
+  return onSnapshot(settingsRef, (snap) => {
+    if (snap.exists()) {
+      onUpdate(snap.data() as SyncSettings);
+    } else {
+      onUpdate(null);
+    }
+  });
+}
+
+// Save global sync settings
+export async function saveSyncSettings(settings: SyncSettings): Promise<void> {
+  const settingsRef = doc(db, 'settings', 'spreadsheet_sync');
+  try {
+    await setDoc(settingsRef, settings, { merge: true });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, 'settings/spreadsheet_sync');
+  }
+}
+
 // Replace all tickets (e.g. from CSV / Spreadsheet import or Reset)
 export async function syncAllTicketsToFirestore(tickets: TicketRecord[]): Promise<void> {
   try {

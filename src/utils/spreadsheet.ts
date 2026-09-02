@@ -3,8 +3,40 @@
  */
 import { TicketRecord, AttendanceStatus, QueueStatus } from '../types';
 
-export const DEFAULT_SHEET_CSV_TEMPLATE = `時間,メアド,名前,属性
-8:30,s25583@stu.seikyo.ed.jp,黒田悠人,生徒`;
+export const DEFAULT_SHEET_CSV_TEMPLATE = `番号,時間,メアド,名前,属性
+1,9:30,s25583@stu.seikyo.ed.jp,黒田悠人,生徒
+2,9:40,s25719@stu.seikyo.ed.jp,平松宗一郎,生徒`;
+
+/**
+ * 30-minute time slot normalizer:
+ * e.g., 9:40 -> 09:30, 9:50 -> 09:30, 9:10 -> 09:00, 9:20 -> 09:00
+ */
+export function normalizeTimeSlot(rawSlot: string): { slot: string; originalNote?: string } {
+  if (!rawSlot) return { slot: '09:00' };
+  const clean = rawSlot.trim();
+
+  // Match HH:mm or H:mm
+  const timeMatch = clean.match(/(\d{1,2}):(\d{2})/);
+  if (timeMatch) {
+    const hours = parseInt(timeMatch[1], 10);
+    const minutes = parseInt(timeMatch[2], 10);
+
+    // 30-minute rounding rule: <30 => 00, >=30 => 30
+    const slotMinutes = minutes < 30 ? '00' : '30';
+    const slotHours = String(hours).padStart(2, '0');
+    const slot = `${slotHours}:${slotMinutes}`;
+
+    // Note original minute if it was non-standard
+    let originalNote: string | undefined;
+    if (minutes !== 0 && minutes !== 30) {
+      originalNote = `予約希望時刻: ${clean}`;
+    }
+
+    return { slot, originalNote };
+  }
+
+  return { slot: clean };
+}
 
 export function parseCSVToTickets(csvText: string): TicketRecord[] {
   const lines = csvText.trim().split(/\r?\n/);
@@ -25,8 +57,15 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
   let attendIdx = headers.findIndex(h => h.includes('出席') || h.includes('状況') || h.includes('status') || h.includes('attend'));
   let notesIdx = headers.findIndex(h => h.includes('備考') || h.includes('メモ') || h.includes('note'));
 
-  // Positional fallback for 4-column format: [時間, メアド, 名前, 属性]
-  if (headers.length === 4 && slotIdx === -1 && emailIdx === -1 && nameIdx === -1) {
+  // Positional fallback for 5-column format: [番号, 時間, メアド, 名前, 属性]
+  if (headers.length >= 5 && numIdx === -1 && slotIdx === -1 && emailIdx === -1) {
+    numIdx = 0;
+    slotIdx = 1;
+    emailIdx = 2;
+    nameIdx = 3;
+    attrIdx = 4;
+  } else if (headers.length === 4 && slotIdx === -1 && emailIdx === -1 && nameIdx === -1) {
+    // 4-column format: [時間, メアド, 名前, 属性]
     slotIdx = 0;
     emailIdx = 1;
     nameIdx = 2;
@@ -40,11 +79,16 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
     const cols = parseCSVLine(line);
     if (cols.length < 2) continue;
 
-    // Determine sequential number if no explicit ticket number column
+    // Determine ticket number (1-digit / natural integer from leftmost column or row index)
     let rawNum = i;
     if (numIdx >= 0 && cols[numIdx]) {
-      const parsedNum = parseInt(cols[numIdx], 10);
-      if (!isNaN(parsedNum)) {
+      const parsedNum = parseInt(cols[numIdx].replace(/[#\s]/g, ''), 10);
+      if (!isNaN(parsedNum) && parsedNum > 0) {
+        rawNum = parsedNum;
+      }
+    } else if (cols[0] && /^\d+$/.test(cols[0].trim())) {
+      const parsedNum = parseInt(cols[0].trim(), 10);
+      if (!isNaN(parsedNum) && parsedNum > 0) {
         rawNum = parsedNum;
       }
     }
@@ -52,35 +96,31 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
     const name = (nameIdx >= 0 && cols[nameIdx]) ? cols[nameIdx].trim() : `受診者${rawNum}`;
     const email = (emailIdx >= 0 && cols[emailIdx]) ? cols[emailIdx].trim() : '';
     
-    // Time slot normalization (e.g., "8:30" -> "08:30" or "08:30 - 09:00")
-    let rawSlot = (slotIdx >= 0 && cols[slotIdx]) ? cols[slotIdx].trim() : '08:30';
-    if (/^\d{1,2}:\d{2}$/.test(rawSlot)) {
-      const [h, m] = rawSlot.split(':');
-      const startH = h.padStart(2, '0');
-      rawSlot = `${startH}:${m}`;
-    }
-    const timeSlot = rawSlot;
+    // Time slot normalization (9:40 -> 09:30, 9:50 -> 09:30)
+    const rawSlot = (slotIdx >= 0 && cols[slotIdx]) ? cols[slotIdx].trim() : '09:00';
+    const { slot: timeSlot, originalNote } = normalizeTimeSlot(rawSlot);
 
     const attribute = (attrIdx >= 0 && cols[attrIdx]) ? cols[attrIdx].trim() : undefined;
-    const rawAttendance = (attendIdx >= 0 && cols[attendIdx]) ? cols[attendIdx].trim() : '未受付';
-    const notes = (notesIdx >= 0 && cols[notesIdx]) ? cols[notesIdx].trim() : '';
+    const rawAttendance = (attendIdx >= 0 && cols[attendIdx]) ? cols[attendIdx].trim() : '出席';
+    const parsedNotes = (notesIdx >= 0 && cols[notesIdx]) ? cols[notesIdx].trim() : '';
+    const combinedNotes = [originalNote, parsedNotes].filter(Boolean).join(' / ');
 
-    let attendance: AttendanceStatus = 'unattended';
+    let attendance: AttendanceStatus = 'present';
     let queueStatus: QueueStatus = 'waiting';
 
-    if (rawAttendance.includes('出席') || rawAttendance.toLowerCase().includes('present')) {
-      attendance = 'present';
-      queueStatus = 'waiting';
-    } else if (rawAttendance.includes('欠席') || rawAttendance.toLowerCase().includes('absent')) {
+    if (rawAttendance.includes('欠席') || rawAttendance.toLowerCase().includes('absent')) {
       attendance = 'absent';
       queueStatus = 'absent';
     } else if (rawAttendance.includes('完了') || rawAttendance.toLowerCase().includes('done')) {
       attendance = 'completed';
       queueStatus = 'done';
+    } else if (rawAttendance.includes('未受付') || rawAttendance.toLowerCase().includes('unattended')) {
+      attendance = 'unattended';
+      queueStatus = 'waiting';
     }
 
     tickets.push({
-      id: `TK-${String(rawNum).padStart(3, '0')}`,
+      id: `TK-${rawNum}`,
       ticketNumber: rawNum,
       name,
       email,
@@ -89,7 +129,8 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
       scheduledDate: today,
       attendance,
       queueStatus,
-      notes,
+      arrivedAt: rawSlot,
+      notes: combinedNotes,
     });
   }
 
@@ -117,7 +158,7 @@ function parseCSVLine(text: string): string[] {
 }
 
 export function exportTicketsToCSV(tickets: TicketRecord[]): string {
-  const headers = ['整理券番号', '氏名', 'メールアドレス', '予約時間帯', '属性', '出席状況', '進行状況', '呼出時刻', '受付時刻', '備考'];
+  const headers = ['番号', '時間', 'メアド', '名前', '属性', '出席状況', '進行状況', '呼出時刻', '受付時刻', '備考'];
 
   const attendanceLabel: Record<AttendanceStatus, string> = {
     unattended: '未受付',
@@ -138,9 +179,9 @@ export function exportTicketsToCSV(tickets: TicketRecord[]): string {
 
   const rows = tickets.map(t => [
     t.ticketNumber,
-    `"${t.name.replace(/"/g, '""')}"`,
-    `"${t.email.replace(/"/g, '""')}"`,
     `"${t.timeSlot.replace(/"/g, '""')}"`,
+    `"${t.email.replace(/"/g, '""')}"`,
+    `"${t.name.replace(/"/g, '""')}"`,
     `"${(t.attribute || '').replace(/"/g, '""')}"`,
     attendanceLabel[t.attendance] || t.attendance,
     queueLabel[t.queueStatus] || t.queueStatus,
@@ -152,8 +193,13 @@ export function exportTicketsToCSV(tickets: TicketRecord[]): string {
   return [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
 }
 
+/**
+ * Fetch spreadsheet CSV with support for Google Sheets, GitHub raw/pages, and CORS proxies
+ */
 export async function fetchGoogleSheetCSV(sheetUrl: string): Promise<TicketRecord[]> {
   let csvUrl = sheetUrl.trim();
+
+  // Convert Google Spreadsheet view URL to CSV export link
   if (csvUrl.includes('/spreadsheets/d/')) {
     const match = csvUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
     if (match && match[1]) {
@@ -164,11 +210,34 @@ export async function fetchGoogleSheetCSV(sheetUrl: string): Promise<TicketRecor
     }
   }
 
-  const response = await fetch(csvUrl);
-  if (!response.ok) {
-    throw new Error(`Google スプレッドシートの取得に失敗しました (HTTP ${response.status})`);
+  let text = '';
+  try {
+    const response = await fetch(csvUrl, { cache: 'no-store' });
+    if (response.ok) {
+      text = await response.text();
+    } else {
+      throw new Error(`HTTP ${response.status}`);
+    }
+  } catch {
+    // If direct fetch has CORS restriction or failed, try CORS proxy fallback
+    try {
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(csvUrl)}`;
+      const proxyRes = await fetch(proxyUrl);
+      if (proxyRes.ok) {
+        text = await proxyRes.text();
+      } else {
+        throw new Error('CORS fallback failed');
+      }
+    } catch {
+      throw new Error(`スプレッドシートURL「${sheetUrl}」からデータを取得できませんでした。URLまたは公開設定をご確認ください。`);
+    }
   }
-  const text = await response.text();
-  return parseCSVToTickets(text);
+
+  // Parse CSV text
+  const tickets = parseCSVToTickets(text);
+  if (tickets.length === 0) {
+    throw new Error('取得したURLに有効なCSV受診者データが含まれていませんでした。');
+  }
+  return tickets;
 }
 

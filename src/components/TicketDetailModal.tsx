@@ -70,7 +70,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                 Blood Donation Ticket
               </span>
               <div className="text-4xl font-black font-mono tracking-tight text-white mt-1">
-                #{String(ticket.ticketNumber).padStart(3, '0')}
+                #{ticket.ticketNumber}
               </div>
             </div>
 

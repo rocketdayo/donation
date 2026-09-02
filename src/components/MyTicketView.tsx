@@ -452,7 +452,7 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
               <div className="mt-4 flex items-baseline gap-2">
                 <span className="text-slate-400 text-sm font-medium">整理券番号</span>
                 <span className="text-5xl sm:text-6xl font-black tracking-tight font-mono text-white">
-                  #{String(currentTicket.ticketNumber).padStart(3, '0')}
+                  #{currentTicket.ticketNumber}
                 </span>
               </div>
             </div>

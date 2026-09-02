@@ -198,7 +198,7 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
                 <div>
                   <div className="flex items-center justify-between">
                     <span className="font-mono font-black text-slate-900 text-base">
-                      #{String(ticket.ticketNumber).padStart(3, '0')}
+                      #{ticket.ticketNumber}
                     </span>
                     <span className="text-[11px] font-medium text-slate-500">{ticket.timeSlot}</span>
                   </div>
@@ -275,7 +275,7 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
                 >
                   <div>
                     <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className="font-bold text-xs text-slate-900">#{String(ticket.ticketNumber).padStart(2, '0')}</span>
+                      <span className="font-bold text-xs text-slate-900">#{ticket.ticketNumber}</span>
                       <span className="text-[10px] text-slate-400">{ticket.timeSlot}</span>
                     </div>
                     <div className="text-xs font-bold text-slate-800">{ticket.name}</div>
@@ -316,7 +316,7 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
                   className="p-3 rounded-xl border border-blue-200 bg-blue-50/40 transition flex items-center justify-between"
                 >
                   <div>
-                    <div className="font-bold text-xs text-slate-900">#{String(ticket.ticketNumber).padStart(2, '0')} {ticket.name}</div>
+                    <div className="font-bold text-xs text-slate-900">#{ticket.ticketNumber} {ticket.name}</div>
                     <div className="text-[10px] text-slate-500">{ticket.donationType || '400mL'}</div>
                   </div>
 
@@ -355,7 +355,7 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
                   className="p-3 rounded-xl border border-rose-200 bg-rose-50/40 transition flex items-center justify-between"
                 >
                   <div>
-                    <div className="font-bold text-xs text-slate-900">#{String(ticket.ticketNumber).padStart(2, '0')} {ticket.name}</div>
+                    <div className="font-bold text-xs text-slate-900">#{ticket.ticketNumber} {ticket.name}</div>
                     <div className="text-[10px] text-slate-500">{ticket.bloodType ? `${ticket.bloodType}型` : ''} ({ticket.donationType || '400mL'})</div>
                   </div>
 
@@ -392,7 +392,7 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
                 className="p-3 rounded-xl border border-teal-200 bg-teal-50/40 transition flex items-center justify-between"
               >
                 <div>
-                  <div className="font-bold text-xs text-slate-900">#{String(ticket.ticketNumber).padStart(2, '0')} {ticket.name}</div>
+                  <div className="font-bold text-xs text-slate-900">#{ticket.ticketNumber} {ticket.name}</div>
                   <div className="text-[10px] text-teal-800 font-medium">水分補給中</div>
                 </div>
 
@@ -414,7 +414,7 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
               >
                 <div className="flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 text-slate-400" />
-                  <span className="font-medium">#{String(ticket.ticketNumber).padStart(2, '0')} {ticket.name}</span>
+                  <span className="font-medium">#{ticket.ticketNumber} {ticket.name}</span>
                 </div>
                 <span className="text-[10px] text-slate-400">{ticket.completedAt || '完了'}</span>
               </div>
