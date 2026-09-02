@@ -1,0 +1,6 @@
+{
+  "name": "献血整理券＆受付管理システム",
+  "description": "リアルタイム進行管理と呼出通知を備えた献血整理券システム",
+  "requestFramePermissions": ["notifications"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

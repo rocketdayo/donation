@@ -1,0 +1,56 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Safety Net: default-deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidTicket(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.ticketNumber is number && data.ticketNumber >= 1 && data.ticketNumber <= 100000
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 100
+        && (!('kana' in data) || (data.kana is string && data.kana.size() <= 100))
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 200
+        && data.timeSlot is string && data.timeSlot.size() <= 50
+        && (!('scheduledDate' in data) || (data.scheduledDate is string && data.scheduledDate.size() <= 50))
+        && data.attendance in ['unattended', 'present', 'absent', 'completed']
+        && data.queueStatus in ['waiting', 'called', 'interview', 'donating', 'resting', 'done', 'absent']
+        && (!('bloodType' in data) || (data.bloodType is string && data.bloodType.size() <= 20))
+        && (!('donationType' in data) || (data.donationType is string && data.donationType.size() <= 50))
+        && (!('firstTimeDonor' in data) || data.firstTimeDonor is bool)
+        && (!('registeredAt' in data) || (data.registeredAt is string && data.registeredAt.size() <= 50))
+        && (!('arrivedAt' in data) || (data.arrivedAt is string && data.arrivedAt.size() <= 50))
+        && (!('calledAt' in data) || (data.calledAt is string && data.calledAt.size() <= 50))
+        && (!('completedAt' in data) || (data.completedAt is string && data.completedAt.size() <= 50))
+        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 500));
+    }
+
+    // Connection test document
+    match /test/{testId} {
+      allow read, write: if true;
+    }
+
+    // Tickets collection
+    match /tickets/{ticketId} {
+      allow get, list: if true;
+      allow create: if isValidId(ticketId) && isValidTicket(incoming());
+      allow update: if isValidId(ticketId) && isValidTicket(incoming());
+      allow delete: if isValidId(ticketId);
+    }
+  }
+}

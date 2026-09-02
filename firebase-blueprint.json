@@ -1,0 +1,95 @@
+{
+  "entities": {
+    "TicketRecord": {
+      "title": "TicketRecord",
+      "description": "Blood donation ticket record with attendee info and queue state",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique ticket document ID",
+          "maxLength": 128
+        },
+        "ticketNumber": {
+          "type": "number",
+          "description": "Sequential ticket queue number"
+        },
+        "name": {
+          "type": "string",
+          "description": "Attendee full name",
+          "maxLength": 100
+        },
+        "kana": {
+          "type": "string",
+          "description": "Attendee kana name",
+          "maxLength": 100
+        },
+        "email": {
+          "type": "string",
+          "description": "Attendee contact email",
+          "maxLength": 200
+        },
+        "timeSlot": {
+          "type": "string",
+          "description": "Reserved time slot",
+          "maxLength": 50
+        },
+        "scheduledDate": {
+          "type": "string",
+          "description": "Scheduled date",
+          "maxLength": 50
+        },
+        "attendance": {
+          "type": "string",
+          "enum": ["unattended", "present", "absent", "completed"],
+          "description": "Attendance status"
+        },
+        "queueStatus": {
+          "type": "string",
+          "enum": ["waiting", "called", "interview", "donating", "resting", "done", "absent"],
+          "description": "Current queue status"
+        },
+        "bloodType": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "donationType": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "firstTimeDonor": {
+          "type": "boolean"
+        },
+        "registeredAt": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "arrivedAt": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "calledAt": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "completedAt": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 500
+        }
+      },
+      "required": ["id", "ticketNumber", "name", "email", "timeSlot", "attendance", "queueStatus"]
+    }
+  },
+  "firestore": {
+    "/tickets/{ticketId}": {
+      "schema": {
+        "$ref": "#/entities/TicketRecord"
+      },
+      "description": "Collection of all blood donation queue tickets and schedules"
+    }
+  }
+}
