@@ -30,11 +30,14 @@ import { TimeSlotGrid } from './components/TimeSlotGrid';
 import { SpreadsheetSyncModal } from './components/SpreadsheetSyncModal';
 import { TicketDetailModal } from './components/TicketDetailModal';
 import { DonationGuidelinesModal } from './components/DonationGuidelinesModal';
+import { Footer } from './components/Footer';
+import { AdminAuthModal } from './components/AdminAuthModal';
 
 export const App: React.FC = () => {
   // State
   const [tickets, setTickets] = useState<TicketRecord[]>(() => loadTicketsFromStorage());
   const [isAdminMode, setIsAdminMode] = useState<boolean>(false);
+  const [isAdminAuthOpen, setIsAdminAuthOpen] = useState<boolean>(false);
   const [adminTab, setAdminTab] = useState<AdminTabType>('queue');
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isFirebaseConnected, setIsFirebaseConnected] = useState<boolean>(false);
@@ -248,7 +251,7 @@ export const App: React.FC = () => {
             tickets={tickets}
             notificationPermission={notificationPermission}
             onReqNotifications={handleRequestNotification}
-            onSwitchToAdmin={() => setIsAdminMode(true)}
+            onSwitchToAdmin={() => setIsAdminAuthOpen(true)}
           />
         ) : (
           // ADMIN VIEW: Progress Board & Time Slots
@@ -270,32 +273,14 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="w-full max-w-7xl mx-auto px-4 mt-12 pt-4 border-t border-slate-200 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-slate-600">
-          <span className="font-semibold">献血整理券＆受付管理システム</span>
-          <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
-            <span className={`w-2 h-2 rounded-full ${isFirebaseConnected ? 'bg-emerald-500' : 'bg-amber-400'}`}></span>
-            {isFirebaseConnected ? 'クラウド同期中 (Firestore)' : 'オフライン/ローカル'}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleResetData}
-            className="text-slate-400 hover:text-slate-700 transition underline text-[11px]"
-          >
-            初期データにリセット
-          </button>
-          <span>•</span>
-          <button
-            onClick={() => setIsAdminMode(!isAdminMode)}
-            className="text-slate-600 hover:text-slate-900 font-medium transition text-[11px]"
-          >
-            {isAdminMode ? '受診者画面に戻る' : '管理者画面へ切替'}
-          </button>
-        </div>
-      </footer>
+      {/* Footer (includes copyright and the only entry point for admin mode) */}
+      <Footer
+        isAdminMode={isAdminMode}
+        onOpenAdminAuth={() => setIsAdminAuthOpen(true)}
+        onExitAdminMode={() => setIsAdminMode(false)}
+        isFirebaseConnected={isFirebaseConnected}
+        onResetData={handleResetData}
+      />
 
       {/* Modals */}
       {/* 1. Spreadsheet Sync Modal */}
@@ -317,6 +302,17 @@ export const App: React.FC = () => {
       <DonationGuidelinesModal
         isOpen={isGuidelinesOpen}
         onClose={() => setIsGuidelinesOpen(false)}
+      />
+
+      {/* 4. Admin Password Authentication Modal */}
+      <AdminAuthModal
+        isOpen={isAdminAuthOpen}
+        onClose={() => setIsAdminAuthOpen(false)}
+        onSuccess={() => {
+          setIsAdminAuthOpen(false);
+          setIsAdminMode(true);
+          sounds.playClick();
+        }}
       />
     </div>
   );

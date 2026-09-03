@@ -135,18 +135,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <span className="hidden md:inline">受診者画面へ</span>
                 </button>
               </>
-            ) : (
-              <>
-                {/* Switch to Admin view */}
-                <button
-                  onClick={() => setIsAdminMode(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5 text-slate-600" />
-                  <span>管理者画面</span>
-                </button>
-              </>
-            )}
+            ) : null}
           </div>
         </div>
 
