@@ -200,7 +200,7 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
   const currentlyCalled = tickets.filter(t => t.queueStatus === 'called');
   
   // Waiting queue calculation
-  const waitingTickets = tickets.filter(t => t.queueStatus === 'waiting' && t.attendance !== 'absent');
+  const waitingTickets = tickets.filter(t => t.queueStatus === 'waiting');
   const myQueuePosition = currentTicket && currentTicket.queueStatus === 'waiting'
     ? waitingTickets.findIndex(t => t.id === currentTicket.id) + 1
     : 0;

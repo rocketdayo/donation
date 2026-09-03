@@ -43,7 +43,7 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
 
   // Group by stage
   const callingList = filteredTickets.filter(t => t.queueStatus === 'called');
-  const waitingList = filteredTickets.filter(t => t.queueStatus === 'waiting' && t.attendance !== 'absent');
+  const waitingList = filteredTickets.filter(t => t.queueStatus === 'waiting');
   const interviewList = filteredTickets.filter(t => t.queueStatus === 'interview');
   const donatingList = filteredTickets.filter(t => t.queueStatus === 'donating');
   const restingList = filteredTickets.filter(t => t.queueStatus === 'resting');
@@ -123,6 +123,8 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
     if (nextStatus === 'done') {
       updates.attendance = 'completed';
       updates.completedAt = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+    } else {
+      updates.attendance = 'absent';
     }
     onUpdateTicket(ticket.id, updates);
   };

@@ -224,7 +224,7 @@ export const App: React.FC = () => {
   };
 
   // Counts
-  const waitingCount = tickets.filter(t => t.queueStatus === 'waiting' && t.attendance !== 'absent').length;
+  const waitingCount = tickets.filter(t => t.queueStatus === 'waiting').length;
   const callingCount = tickets.filter(t => t.queueStatus === 'called').length;
   const completedCount = tickets.filter(t => t.queueStatus === 'done').length;
 

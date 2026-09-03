@@ -65,10 +65,16 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
       });
   }, [tickets, searchQuery, lotteryFilter]);
 
+  // Check if ticket donation is completed
+  const isTicketCompleted = (t: TicketRecord) => {
+    return t.queueStatus === 'done' || t.attendance === 'completed';
+  };
+
   // Statistics calculation
   const stats = useMemo(() => {
     const total = tickets.length;
-    const presentCount = tickets.filter(t => t.attendance === 'present' || t.attendance === 'completed').length;
+    const completedCount = tickets.filter(isTicketCompleted).length;
+    const pendingCount = total - completedCount;
     const lotteryDoneCount = tickets.filter(t => t.lotteryResult && t.lotteryResult !== '未抽選').length;
 
     const countByPrize: Record<string, number> = {
@@ -88,42 +94,30 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
 
     return {
       total,
-      presentCount,
+      completedCount,
+      pendingCount,
       lotteryDoneCount,
       countByPrize
     };
   }, [tickets]);
 
-  // Format attendance display matching the user's screenshot
-  const renderAttendanceBadge = (status: AttendanceStatus) => {
-    switch (status) {
-      case 'present':
-        // Soft peach/pink background with red text as shown in Image 1: 「出席 ▼」
-        return (
-          <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold bg-[#fed7d7] text-[#c53030] border border-rose-300/80 shadow-2xs select-none">
-            出席
-          </span>
-        );
-      case 'completed':
-        return (
-          <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300/80 shadow-2xs select-none">
-            完了
-          </span>
-        );
-      case 'absent':
-        return (
-          <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-500 border border-slate-200 select-none">
-            欠席
-          </span>
-        );
-      case 'unattended':
-      default:
-        return (
-          <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200 select-none">
-            未定
-          </span>
-        );
+  // Format attendance display: 完了した人は出席、まだ完了してない人は欠席
+  const renderAttendanceBadge = (ticket: TicketRecord) => {
+    const completed = isTicketCompleted(ticket);
+    if (completed) {
+      // Soft peach/pink background with red text as shown in user's image: 「出席」
+      return (
+        <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold bg-[#fed7d7] text-[#c53030] border border-rose-300/80 shadow-2xs select-none">
+          出席
+        </span>
+      );
     }
+    // まだ完了してない人は「欠席」
+    return (
+      <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-300/80 shadow-2xs select-none">
+        欠席
+      </span>
+    );
   };
 
   // Dynamic styling for lottery result dropdown pill matching Image 1: 「四等 ▼」
@@ -167,7 +161,7 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
               </h2>
             </div>
             <p className="text-xs sm:text-sm text-slate-500 mt-1">
-              Googleスプレッドシート連携データです。<span className="font-semibold text-slate-700">くじ引き結果の入力のみ選択可能</span>で、その他の項目は誤操作防止のため閲覧専用となっています。
+              Googleスプレッドシート連携データです。出欠は献血が完了した人が<span className="font-bold text-[#c53030]">「出席」</span>、未完了の人が<span className="font-bold text-slate-700">「欠席」</span>と表示されます。<span className="font-semibold text-slate-800">くじ引き結果のみ操作可能</span>です。
             </p>
           </div>
 
@@ -188,7 +182,10 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
             受診登録: <span className="font-bold text-slate-900">{stats.total}名</span>
           </div>
           <div className="px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 font-medium">
-            出席: <span className="font-bold text-rose-900">{stats.presentCount}名</span>
+            出席（完了）: <span className="font-bold text-rose-900">{stats.completedCount}名</span>
+          </div>
+          <div className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 font-medium">
+            欠席（未完了）: <span className="font-bold text-slate-800">{stats.pendingCount}名</span>
           </div>
           <div className="px-2.5 py-1 rounded-lg bg-purple-50 border border-purple-200 text-purple-900 font-medium">
             くじ引き済: <span className="font-bold text-purple-950">{stats.lotteryDoneCount}名</span> / {stats.total}名
@@ -316,9 +313,9 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
                         {ticket.attribute || '生徒'}
                       </td>
 
-                      {/* 5. 出欠 (Read-only styled badge matching user screenshot) */}
+                      {/* 5. 出欠 (完了した人は出席、まだ完了してない人は欠席) */}
                       <td className="py-2.5 px-4 text-center border-r border-slate-200/80 whitespace-nowrap">
-                        {renderAttendanceBadge(ticket.attendance)}
+                        {renderAttendanceBadge(ticket)}
                       </td>
 
                       {/* 6. くじ引きの結果 (Selectable dropdown styled matching Image 1) */}

@@ -24,22 +24,18 @@ export const TimeSlotGrid: React.FC<TimeSlotGridProps> = ({
   const slotStats = allUniqueSlots.map(slot => {
     const slotTickets = tickets.filter(t => normalizeTimeSlot(t.timeSlot).slot === slot);
     const reserved = slotTickets.length;
-    const present = slotTickets.filter(t => t.attendance === 'present').length;
-    const completed = slotTickets.filter(t => t.attendance === 'completed').length;
-    const absent = slotTickets.filter(t => t.attendance === 'absent').length;
-    const unattended = slotTickets.filter(t => t.attendance === 'unattended').length;
-    const available = Math.max(0, SLOT_CAPACITY - (reserved - absent));
+    const completed = slotTickets.filter(t => t.queueStatus === 'done' || t.attendance === 'completed').length;
+    const pending = reserved - completed;
+    const available = Math.max(0, SLOT_CAPACITY - reserved);
 
     return {
       slot,
       tickets: slotTickets,
       reserved,
-      present,
       completed,
-      absent,
-      unattended,
+      pending,
       available,
-      percentage: Math.min(100, Math.round(((reserved - absent) / SLOT_CAPACITY) * 100))
+      percentage: Math.min(100, Math.round((reserved / SLOT_CAPACITY) * 100))
     };
   });
 
@@ -115,66 +111,54 @@ export const TimeSlotGrid: React.FC<TimeSlotGridProps> = ({
                   <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden flex">
                     <div
                       style={{ width: `${Math.min(100, (item.completed / SLOT_CAPACITY) * 100)}%` }}
-                      className="bg-slate-800 h-full"
-                      title={`完了: ${item.completed}名`}
+                      className="bg-rose-500 h-full"
+                      title={`完了（出席）: ${item.completed}名`}
                     />
                     <div
-                      style={{ width: `${Math.min(100, (item.present / SLOT_CAPACITY) * 100)}%` }}
-                      className="bg-blue-600 h-full"
-                      title={`進行中: ${item.present}名`}
-                    />
-                    <div
-                      style={{ width: `${Math.min(100, (item.unattended / SLOT_CAPACITY) * 100)}%` }}
-                      className="bg-amber-400 h-full"
-                      title={`未受付: ${item.unattended}名`}
-                    />
-                    <div
-                      style={{ width: `${Math.min(100, (item.absent / SLOT_CAPACITY) * 100)}%` }}
-                      className="bg-rose-400 h-full"
-                      title={`欠席: ${item.absent}名`}
+                      style={{ width: `${Math.min(100, (item.pending / SLOT_CAPACITY) * 100)}%` }}
+                      className="bg-slate-300 h-full"
+                      title={`未完了（欠席）: ${item.pending}名`}
                     />
                   </div>
                 </div>
 
                 {/* Breakdown Badges */}
-                <div className="grid grid-cols-4 gap-1.5 mt-3 text-center text-[11px]">
-                  <div className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-800">
-                    <div className="text-[10px] text-slate-500">完了</div>
+                <div className="grid grid-cols-3 gap-1.5 mt-3 text-center text-[11px]">
+                  <div className="p-1.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-900">
+                    <div className="text-[10px] text-rose-600 font-medium">出席 (完了)</div>
                     <div className="font-bold">{item.completed}</div>
                   </div>
-                  <div className="p-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-900">
-                    <div className="text-[10px] text-blue-600">対応中</div>
-                    <div className="font-bold">{item.present}</div>
+                  <div className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-800">
+                    <div className="text-[10px] text-slate-500 font-medium">欠席 (未完了)</div>
+                    <div className="font-bold">{item.pending}</div>
                   </div>
-                  <div className="p-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900">
-                    <div className="text-[10px] text-amber-600">未受付</div>
-                    <div className="font-bold">{item.unattended}</div>
-                  </div>
-                  <div className="p-1.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-900">
-                    <div className="text-[10px] text-rose-600">欠席</div>
-                    <div className="font-bold">{item.absent}</div>
+                  <div className="p-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900">
+                    <div className="text-[10px] text-emerald-600 font-medium">空き枠</div>
+                    <div className="font-bold">{item.available}</div>
                   </div>
                 </div>
 
                 {/* Attendee Name Tags */}
                 {item.tickets.length > 0 && (
                   <div className="mt-3 pt-2.5 border-t border-slate-100 flex flex-wrap gap-1 max-h-20 overflow-y-auto">
-                    {item.tickets.map(t => (
-                      <span 
-                        key={t.id}
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] ${
-                          t.attendance === 'completed'
-                            ? 'bg-slate-100 text-slate-700'
-                            : t.attendance === 'present'
-                            ? 'bg-blue-50 text-blue-800 font-bold border border-blue-200'
-                            : t.attendance === 'absent'
-                            ? 'bg-rose-50 text-rose-700 line-through'
-                            : 'bg-slate-50 text-slate-600 border border-slate-200'
-                        }`}
-                      >
-                        #{t.ticketNumber} {t.name}
-                      </span>
-                    ))}
+                    {item.tickets.map(t => {
+                      const isDone = t.queueStatus === 'done' || t.attendance === 'completed';
+                      return (
+                        <span 
+                          key={t.id}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] ${
+                            isDone
+                              ? 'bg-rose-100 text-[#c53030] font-bold border border-rose-300'
+                              : 'bg-slate-100 text-slate-700 border border-slate-200'
+                          }`}
+                        >
+                          #{t.ticketNumber} {t.name}
+                          <span className="text-[9px] opacity-75">
+                            {isDone ? '(出席)' : '(欠席)'}
+                          </span>
+                        </span>
+                      );
+                    })}
                   </div>
                 )}
               </div>

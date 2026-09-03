@@ -4,8 +4,8 @@
 import { TicketRecord, AttendanceStatus, QueueStatus } from '../types';
 
 export const DEFAULT_SHEET_CSV_TEMPLATE = `番号,時間,メアド,名前,属性,出欠,くじ引き結果
-1,9:30,s25583@stu.seikyo.ed.jp,黒田悠人,生徒,出席,
-2,9:40,s25719@stu.seikyo.ed.jp,平松宗一郎,生徒,出席,
+1,9:30,s25583@stu.seikyo.ed.jp,黒田悠人,生徒,欠席,
+2,9:40,s25719@stu.seikyo.ed.jp,平松宗一郎,生徒,欠席,
 3,9:45,s25800@stu.seikyo.ed.jp,清教大和,生徒,出席,四等`;
 
 /**
@@ -110,17 +110,15 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
     const parsedNotes = (notesIdx >= 0 && cols[notesIdx]) ? cols[notesIdx].trim() : '';
     const combinedNotes = [originalNote, parsedNotes].filter(Boolean).join(' / ');
 
-    let attendance: AttendanceStatus = 'present';
+    let attendance: AttendanceStatus = 'absent';
     let queueStatus: QueueStatus = 'waiting';
 
-    if (rawAttendance.includes('欠席') || rawAttendance.toLowerCase().includes('absent')) {
-      attendance = 'absent';
-      queueStatus = 'absent';
-    } else if (rawAttendance.includes('完了') || rawAttendance.toLowerCase().includes('done')) {
+    if (rawAttendance.includes('出席') || rawAttendance.includes('完了') || rawAttendance.toLowerCase().includes('done')) {
       attendance = 'completed';
       queueStatus = 'done';
-    } else if (rawAttendance.includes('未受付') || rawAttendance.toLowerCase().includes('unattended')) {
-      attendance = 'unattended';
+    } else {
+      // まだ完了してない人は欠席
+      attendance = 'absent';
       queueStatus = 'waiting';
     }
 
@@ -183,19 +181,24 @@ export function exportTicketsToCSV(tickets: TicketRecord[]): string {
     absent: '欠席'
   };
 
-  const rows = tickets.map(t => [
-    t.ticketNumber,
-    `"${t.timeSlot.replace(/"/g, '""')}"`,
-    `"${t.email.replace(/"/g, '""')}"`,
-    `"${t.name.replace(/"/g, '""')}"`,
-    `"${(t.attribute || '').replace(/"/g, '""')}"`,
-    attendanceLabel[t.attendance] || t.attendance,
-    `"${(t.lotteryResult || '').replace(/"/g, '""')}"`,
-    queueLabel[t.queueStatus] || t.queueStatus,
-    t.calledAt || '',
-    t.arrivedAt || '',
-    `"${(t.notes || '').replace(/"/g, '""')}"`
-  ]);
+  const rows = tickets.map(t => {
+    const isCompleted = t.queueStatus === 'done' || t.attendance === 'completed';
+    const attendanceExport = isCompleted ? '出席' : '欠席';
+
+    return [
+      t.ticketNumber,
+      `"${t.timeSlot.replace(/"/g, '""')}"`,
+      `"${t.email.replace(/"/g, '""')}"`,
+      `"${t.name.replace(/"/g, '""')}"`,
+      `"${(t.attribute || '').replace(/"/g, '""')}"`,
+      attendanceExport,
+      `"${(t.lotteryResult || '').replace(/"/g, '""')}"`,
+      queueLabel[t.queueStatus] || t.queueStatus,
+      t.calledAt || '',
+      t.arrivedAt || '',
+      `"${(t.notes || '').replace(/"/g, '""')}"`
+    ];
+  });
 
   return [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
 }
