@@ -29,6 +29,7 @@ import { LiveQueueBoard } from './components/LiveQueueBoard';
 import { TimeSlotGrid } from './components/TimeSlotGrid';
 import { SpreadsheetSyncModal } from './components/SpreadsheetSyncModal';
 import { TicketDetailModal } from './components/TicketDetailModal';
+import { DonationGuidelinesModal } from './components/DonationGuidelinesModal';
 
 export const App: React.FC = () => {
   // State
@@ -43,6 +44,7 @@ export const App: React.FC = () => {
 
   // Modals state
   const [isSpreadsheetOpen, setIsSpreadsheetOpen] = useState(false);
+  const [isGuidelinesOpen, setIsGuidelinesOpen] = useState(false);
   const [detailTicket, setDetailTicket] = useState<TicketRecord | null>(null);
   const [syncSettings, setSyncSettings] = useState<SyncSettings | null>(() => {
     const localUrl = localStorage.getItem('blood_donation_sheet_url') || 'https://rocketdayo.github.io/donation/';
@@ -228,6 +230,7 @@ export const App: React.FC = () => {
         adminTab={adminTab}
         setAdminTab={setAdminTab}
         onOpenSpreadsheet={() => setIsSpreadsheetOpen(true)}
+        onOpenGuidelines={() => setIsGuidelinesOpen(true)}
         soundEnabled={soundEnabled}
         setSoundEnabled={setSoundEnabled}
         notificationPermission={notificationPermission}
@@ -308,6 +311,12 @@ export const App: React.FC = () => {
         ticket={detailTicket}
         isOpen={Boolean(detailTicket)}
         onClose={() => setDetailTicket(null)}
+      />
+
+      {/* 3. Donation Guidelines & Rules Modal */}
+      <DonationGuidelinesModal
+        isOpen={isGuidelinesOpen}
+        onClose={() => setIsGuidelinesOpen(false)}
       />
     </div>
   );

@@ -7,7 +7,8 @@ import {
   Volume2, 
   VolumeX, 
   ShieldCheck,
-  User
+  User,
+  ClipboardCheck
 } from 'lucide-react';
 import { sounds } from '../utils/audio';
 import { VoiceAnnouncer } from '../utils/speech';
@@ -18,6 +19,7 @@ interface HeaderProps {
   adminTab: 'queue' | 'slots';
   setAdminTab: (tab: 'queue' | 'slots') => void;
   onOpenSpreadsheet: () => void;
+  onOpenGuidelines: () => void;
   soundEnabled: boolean;
   setSoundEnabled: (enabled: boolean) => void;
   notificationPermission: NotificationPermission;
@@ -33,6 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
   adminTab,
   setAdminTab,
   onOpenSpreadsheet,
+  onOpenGuidelines,
   soundEnabled,
   setSoundEnabled,
   notificationPermission,
@@ -75,6 +78,16 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Right Action Controls */}
           <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Guidelines & Requirements Button */}
+            <button
+              onClick={onOpenGuidelines}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 transition cursor-pointer"
+              title="参加基準・準備・注意事項を確認"
+            >
+              <ClipboardCheck className="w-3.5 h-3.5 text-rose-600" />
+              <span>参加基準・注意</span>
+            </button>
+
             {isAdminMode ? (
               <>
                 {/* Admin Status summary */}

@@ -28,6 +28,7 @@ import {
 import { NotificationManager } from '../utils/notifications';
 import { sounds } from '../utils/audio';
 import { auth } from '../firebase';
+import { DonationGuidelines } from './DonationGuidelines';
 
 interface MyTicketViewProps {
   tickets: TicketRecord[];
@@ -435,6 +436,9 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
               </div>
             </div>
           )}
+
+          {/* Donation Eligibility & Guidelines (Poster Information) */}
+          <DonationGuidelines defaultExpanded={true} />
         </div>
       ) : (
         /* 2. MATCHED TICKET: DISPLAY USER'S PERSONAL TICKET ONLY */
@@ -713,13 +717,17 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
             </div>
           </div>
 
+          {/* Donation Guidelines & Requirements (Poster Information) */}
+          <DonationGuidelines defaultExpanded={false} />
+
           {/* Pre-donation advice */}
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-600 space-y-1.5">
-            <div className="font-bold text-slate-800">
-              献血ご協力にあたって
+          <div className="p-4 rounded-2xl bg-rose-50/60 border border-rose-100 text-xs text-rose-950 space-y-1.5">
+            <div className="font-bold flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-rose-600" />
+              献血ご協力にあたってのお願い
             </div>
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              問診前には十分な水分補給（コップ1〜2杯）をお願いいたします。受付にてお呼び出しがありましたら、カウンターまでお越しください。
+            <p className="text-[11px] text-rose-900/80 leading-relaxed">
+              問診前には十分な水分補給（コップ1〜2杯）をお願いいたします。受付にてお呼び出しがありましたら、食堂前の献血受付カウンターまでお越しください。
             </p>
           </div>
         </>
