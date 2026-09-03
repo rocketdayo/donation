@@ -222,7 +222,7 @@ export const App: React.FC = () => {
   const completedCount = tickets.filter(t => t.queueStatus === 'done').length;
 
   return (
-    <div className="min-h-screen bg-slate-100/70 text-slate-900 flex flex-col font-sans selection:bg-slate-800 selection:text-white pb-12">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-slate-800 selection:text-white pb-12">
       {/* Top Header */}
       <Header
         isAdminMode={isAdminMode}

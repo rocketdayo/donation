@@ -294,8 +294,8 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
         <div className="space-y-4">
           <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 shadow-xs space-y-5">
             <div className="text-center space-y-1.5">
-              <div className="inline-flex p-3 rounded-2xl bg-rose-50 text-rose-600 border border-rose-100 mb-1">
-                <Mail className="w-6 h-6" />
+              <div className="inline-flex p-3 rounded-2xl bg-slate-100 text-slate-800 border border-slate-200 mb-1">
+                <Mail className="w-6 h-6 text-slate-700" />
               </div>
               <h2 className="text-lg sm:text-xl font-bold text-slate-900">
                 整理券の照会・ログイン
@@ -376,8 +376,8 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
           {/* Standalone Install Promotion Card */}
           <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-2xl bg-slate-100 text-slate-800 flex-shrink-0">
-                <Smartphone className="w-5 h-5 text-rose-600" />
+              <div className="p-2.5 rounded-2xl bg-slate-100 text-slate-700 flex-shrink-0">
+                <Smartphone className="w-5 h-5 text-slate-700" />
               </div>
               <div>
                 <h4 className="text-xs font-bold text-slate-900">
@@ -402,7 +402,7 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
             <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-3 text-xs">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <h4 className="font-bold text-slate-900 flex items-center gap-1.5">
-                  <Smartphone className="w-4 h-4 text-rose-600" />
+                  <Smartphone className="w-4 h-4 text-slate-700" />
                   ホーム画面への追加手順（PWA）
                 </h4>
                 <button
@@ -581,8 +581,8 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
             {/* Header / Push Notification Status */}
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-2xl bg-rose-50 text-rose-600 border border-rose-100 flex-shrink-0">
-                  <Bell className="w-5 h-5" />
+                <div className="p-2.5 rounded-2xl bg-slate-100 text-slate-700 border border-slate-200 flex-shrink-0">
+                  <Bell className="w-5 h-5 text-slate-700" />
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-slate-900">
@@ -705,8 +705,8 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
                       </div>
                     </div>
 
-                    <div className="p-2.5 rounded-xl bg-rose-50/60 border border-rose-100/80 text-[11px] text-rose-900 flex items-start gap-2">
-                      <Info className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+                    <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 flex items-start gap-2">
+                      <Info className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
                       <span>
                         ホーム画面のアプリアイコンから開くことで、待機中もフルスクリーンで整理券を確認でき、呼出通知を確実に受け取れます。
                       </span>
@@ -721,12 +721,12 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
           <DonationGuidelines defaultExpanded={false} />
 
           {/* Pre-donation advice */}
-          <div className="p-4 rounded-2xl bg-rose-50/60 border border-rose-100 text-xs text-rose-950 space-y-1.5">
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-slate-800 space-y-1.5">
             <div className="font-bold flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-rose-600" />
               献血ご協力にあたってのお願い
             </div>
-            <p className="text-[11px] text-rose-900/80 leading-relaxed">
+            <p className="text-[11px] text-slate-600 leading-relaxed">
               問診前には十分な水分補給（コップ1〜2杯）をお願いいたします。受付にてお呼び出しがありましたら、食堂前の献血受付カウンターまでお越しください。
             </p>
           </div>

@@ -81,10 +81,10 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Guidelines & Requirements Button */}
             <button
               onClick={onOpenGuidelines}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 shadow-2xs transition cursor-pointer"
               title="参加基準・準備・注意事項を確認"
             >
-              <ClipboardCheck className="w-3.5 h-3.5 text-rose-600" />
+              <ClipboardCheck className="w-3.5 h-3.5 text-slate-500" />
               <span>参加基準・注意</span>
             </button>
 

@@ -21,7 +21,7 @@ export const DonationGuidelinesModal: React.FC<DonationGuidelinesModalProps> = (
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-10 p-2 rounded-full bg-black/20 hover:bg-black/30 text-white transition cursor-pointer"
+          className="absolute top-4 right-4 z-10 p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 transition cursor-pointer"
           aria-label="閉じる"
         >
           <X className="w-4 h-4" />
