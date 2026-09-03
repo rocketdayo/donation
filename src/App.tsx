@@ -27,6 +27,7 @@ import { Header } from './components/Header';
 import { MyTicketView } from './components/MyTicketView';
 import { LiveQueueBoard } from './components/LiveQueueBoard';
 import { TimeSlotGrid } from './components/TimeSlotGrid';
+import { AdminLotteryRoster } from './components/AdminLotteryRoster';
 import { SpreadsheetSyncModal } from './components/SpreadsheetSyncModal';
 import { TicketDetailModal } from './components/TicketDetailModal';
 import { DonationGuidelinesModal } from './components/DonationGuidelinesModal';
@@ -179,12 +180,16 @@ export const App: React.FC = () => {
   // Update single ticket record (sync to Firestore + optimistic local update)
   const handleUpdateTicket = async (id: string, partial: Partial<TicketRecord>) => {
     // Optimistic local update
-    setTickets(prev => prev.map(t => {
-      if (t.id === id) {
-        return { ...t, ...partial };
-      }
-      return t;
-    }));
+    setTickets(prev => {
+      const next = prev.map(t => {
+        if (t.id === id) {
+          return { ...t, ...partial };
+        }
+        return t;
+      });
+      saveTicketsToStorage(next);
+      return next;
+    });
 
     // Update in Firestore
     try {
@@ -210,7 +215,6 @@ export const App: React.FC = () => {
     if (window.confirm('データを初期予約データにリセットしますか？')) {
       setTickets(SAMPLE_TICKETS);
       saveTicketsToStorage(SAMPLE_TICKETS);
-      sounds.playClick();
       try {
         await syncAllTicketsToFirestore(SAMPLE_TICKETS);
       } catch (err) {
@@ -269,6 +273,14 @@ export const App: React.FC = () => {
                 tickets={tickets}
               />
             )}
+
+            {adminTab === 'lottery' && (
+              <AdminLotteryRoster
+                tickets={tickets}
+                onUpdateLotteryResult={(ticketId, result) => handleUpdateTicket(ticketId, { lotteryResult: result })}
+                onOpenSpreadsheet={() => setIsSpreadsheetOpen(true)}
+              />
+            )}
           </>
         )}
       </main>
@@ -311,7 +323,6 @@ export const App: React.FC = () => {
         onSuccess={() => {
           setIsAdminAuthOpen(false);
           setIsAdminMode(true);
-          sounds.playClick();
         }}
       />
     </div>

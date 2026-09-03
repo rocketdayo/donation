@@ -6,7 +6,6 @@ import {
   exportTicketsToCSV, 
   fetchGoogleSheetCSV 
 } from '../utils/spreadsheet';
-import { sounds } from '../utils/audio';
 import { saveSyncSettings, subscribeToSyncSettings, SyncSettings } from '../firebase';
 import { 
   FileSpreadsheet, 
@@ -77,7 +76,6 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
         throw new Error('スプレッドシートから有効な受診者データが見つかりませんでした。');
       }
       onImportTickets(newTickets);
-      sounds.playCallingChime();
       
       const nowStr = new Date().toLocaleTimeString('ja-JP');
       setLastSyncTime(nowStr);
@@ -130,14 +128,12 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    sounds.playClick();
   };
 
   const handleCopyCSV = () => {
     const csvContent = exportTicketsToCSV(tickets);
     navigator.clipboard.writeText(csvContent);
     setCopied(true);
-    sounds.playClick();
     setTimeout(() => setCopied(false), 3000);
   };
 
@@ -149,7 +145,6 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
         throw new Error('解析できるデータ行がありませんでした。');
       }
       onImportTickets(parsed);
-      sounds.playCallingChime();
       setStatusMsg({ type: 'success', text: `貼り付けられたCSVから ${parsed.length} 名のデータを取り込み、クラウドへ共有しました。` });
       setCsvInput('');
       setShowPasteArea(false);
@@ -162,7 +157,6 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
   const handleLoadTemplate = () => {
     setCsvInput(DEFAULT_SHEET_CSV_TEMPLATE);
     setShowPasteArea(true);
-    sounds.playClick();
   };
 
   return (

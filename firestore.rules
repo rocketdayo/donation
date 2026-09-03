@@ -40,6 +40,7 @@ service cloud.firestore {
         && (!('calledTimestamp' in data) || data.calledTimestamp is number)
         && (!('callCount' in data) || data.callCount is number)
         && (!('completedAt' in data) || (data.completedAt is string && data.completedAt.size() <= 50))
+        && (!('lotteryResult' in data) || (data.lotteryResult is string && data.lotteryResult.size() <= 50))
         && (!('notes' in data) || (data.notes is string && data.notes.size() <= 500));
     }
 

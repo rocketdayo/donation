@@ -180,11 +180,9 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
       if (match) {
         setUserEmail(target);
         localStorage.setItem(STORAGE_EMAIL_KEY, target);
-        sounds.playSuccessChime();
         setVerifyError(null);
       } else {
         setVerifyError(`メールアドレス「${inputEmail}」に一致する献血予約・整理券が見つかりませんでした。入力内容をご確認ください。`);
-        sounds.playClick();
       }
       setIsVerifying(false);
     }, 300);
@@ -196,7 +194,6 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
     localStorage.removeItem(STORAGE_EMAIL_KEY);
     setInputEmail('');
     setVerifyError(null);
-    sounds.playClick();
   };
 
   // Currently called tickets

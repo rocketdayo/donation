@@ -33,6 +33,7 @@ export const INITIAL_TICKETS: TicketRecord[] = [
     attendance: 'present',
     queueStatus: 'waiting',
     arrivedAt: '09:30',
+    lotteryResult: '',
     notes: ''
   },
   {
@@ -46,7 +47,22 @@ export const INITIAL_TICKETS: TicketRecord[] = [
     attendance: 'present',
     queueStatus: 'waiting',
     arrivedAt: '09:40',
+    lotteryResult: '',
     notes: '元の予約時刻: 9:40'
+  },
+  {
+    id: 'TK-3',
+    ticketNumber: 3,
+    name: '清教大和',
+    email: 's25800@stu.seikyo.ed.jp',
+    timeSlot: '09:30',
+    attribute: '生徒',
+    scheduledDate: '2026-09-02',
+    attendance: 'present',
+    queueStatus: 'waiting',
+    arrivedAt: '09:45',
+    lotteryResult: '四等',
+    notes: ''
   }
 ];
 

@@ -13,7 +13,17 @@ export type QueueStatus =
 
 export type AttendanceStatus = 'unattended' | 'present' | 'absent' | 'completed';
 
-export type AdminTabType = 'queue' | 'slots';
+export type LotteryResultType = 
+  | ''
+  | '未抽選'
+  | '一等'
+  | '二等'
+  | '三等'
+  | '四等'
+  | '参加賞'
+  | 'はずれ';
+
+export type AdminTabType = 'queue' | 'slots' | 'lottery';
 
 export interface TicketRecord {
   id: string;              // e.g. "TK-001"
@@ -26,6 +36,7 @@ export interface TicketRecord {
   attendance: AttendanceStatus;
   queueStatus: QueueStatus;
   attribute?: string;      // 属性 (e.g. "生徒", "教員", "保護者", "一般")
+  lotteryResult?: string;  // くじ引き結果 (e.g. "四等", "一等", etc.)
   bloodType?: string;      // 血液型 (任意)
   donationType?: string;   // 200mL / 400mL / 成分献血
   firstTimeDonor?: boolean;

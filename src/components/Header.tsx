@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   HeartHandshake, 
   Users, 
@@ -8,16 +8,19 @@ import {
   VolumeX, 
   ShieldCheck,
   User,
-  ClipboardCheck
+  ClipboardCheck,
+  Gift
 } from 'lucide-react';
 import { sounds } from '../utils/audio';
 import { VoiceAnnouncer } from '../utils/speech';
+import { AdminTabType } from '../types';
+import donationLogo from '../assets/images/donation_app_icon_1788338521568.jpg';
 
 interface HeaderProps {
   isAdminMode: boolean;
   setIsAdminMode: (admin: boolean) => void;
-  adminTab: 'queue' | 'slots';
-  setAdminTab: (tab: 'queue' | 'slots') => void;
+  adminTab: AdminTabType;
+  setAdminTab: (tab: AdminTabType) => void;
   onOpenSpreadsheet: () => void;
   onOpenGuidelines: () => void;
   soundEnabled: boolean;
@@ -44,12 +47,13 @@ export const Header: React.FC<HeaderProps> = ({
   callingCount,
   completedCount,
 }) => {
+  const [logoError, setLogoError] = useState(false);
+
   const toggleSound = () => {
     const next = !soundEnabled;
     setSoundEnabled(next);
     sounds.setEnabled(next);
     VoiceAnnouncer.setEnabled(next);
-    if (next) sounds.playClick();
   };
 
   return (
@@ -58,12 +62,18 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center justify-between gap-4">
           {/* Logo & Title */}
           <div className="flex items-center gap-3 min-w-0">
-            <img 
-              src="/donation_icon.jpg" 
-              alt="献血ロゴ" 
-              className="w-9 h-9 rounded-xl object-contain object-center border border-slate-200 bg-white p-0.5 shadow-xs flex-shrink-0" 
-              referrerPolicy="no-referrer" 
-            />
+            {!logoError ? (
+              <img 
+                src={donationLogo} 
+                alt="献血ロゴ" 
+                onError={() => setLogoError(true)}
+                className="w-9 h-9 rounded-xl object-cover object-center border border-slate-200 bg-white shadow-xs flex-shrink-0" 
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-xl border border-rose-200 bg-rose-50 flex items-center justify-center shadow-xs flex-shrink-0">
+                <HeartHandshake className="w-5 h-5 text-rose-600" />
+              </div>
+            )}
             <div className="min-w-0">
               <h1 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight flex items-center gap-2 truncate">
                 献血整理券＆受付管理システム
@@ -165,6 +175,18 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <Clock className="w-4 h-4" />
                 時間帯別予約状況
+              </button>
+
+              <button
+                onClick={() => setAdminTab('lottery')}
+                className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition ${
+                  adminTab === 'lottery'
+                    ? 'bg-slate-900 text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                <Gift className="w-4 h-4" />
+                くじ引き・受付名簿
               </button>
             </nav>
           </div>

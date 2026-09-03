@@ -111,7 +111,6 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
   // Call the next person in waiting line
   const handleCallNext = () => {
     if (waitingList.length === 0) {
-      sounds.playClick();
       return;
     }
     const nextTicket = waitingList[0];
@@ -120,7 +119,6 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
 
   // Change stage quick handler
   const handleStageTransition = (ticket: TicketRecord, nextStatus: QueueStatus) => {
-    sounds.playClick();
     const updates: Partial<TicketRecord> = { queueStatus: nextStatus };
     if (nextStatus === 'done') {
       updates.attendance = 'completed';
