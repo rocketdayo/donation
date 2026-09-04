@@ -37,15 +37,23 @@ export function normalizeTimeSlot(rawSlot: string): { slot: string; originalNote
 }
 
 export function parseCSVToTickets(csvText: string): TicketRecord[] {
-  const lines = csvText.trim().split(/\r?\n/);
+  if (!csvText) return [];
+  const cleanText = csvText.replace(/^\uFEFF/, '').trim();
+  const lines = cleanText.split(/\r?\n/);
   if (lines.length < 2) return [];
 
   const tickets: TicketRecord[] = [];
   const today = new Date().toISOString().split('T')[0];
 
+  // Auto-detect delimiter: check if lines contain tabs or commas
+  const firstLine = lines[0] || '';
+  const tabCount = (firstLine.match(/\t/g) || []).length;
+  const commaCount = (firstLine.match(/,/g) || []).length;
+  const delimiter = tabCount > commaCount ? '\t' : ',';
+
   // Header inspection
   const headerLine = lines[0].toLowerCase();
-  const headers = parseCSVLine(headerLine);
+  const headers = parseCSVLine(headerLine, delimiter);
 
   let numIdx = headers.findIndex(h => h.includes('番号') || h.includes('number') || h.includes('no') || h.includes('id'));
   let nameIdx = headers.findIndex(h => h.includes('名前') || h.includes('氏名') || h.includes('name') || h.includes('受診者') || h.includes('生徒'));
@@ -64,7 +72,7 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
     lotteryIdx = 6;
   }
 
-  // Positional fallback for standard formats: [番号, 時間, メアド, 名前, 属性, 状態, くじ引き結果]
+  // Positional fallback for standard 5-column formats: [番号, 時間, メアド, 名前, 属性, 状態, くじ引き結果]
   if (headers.length >= 5 && numIdx === -1 && slotIdx === -1 && emailIdx === -1) {
     numIdx = 0;
     slotIdx = 1;
@@ -85,7 +93,7 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
     const line = lines[i].trim();
     if (!line) continue;
 
-    const cols = parseCSVLine(line);
+    const cols = parseCSVLine(line, delimiter);
     if (cols.length < 2) continue;
 
     // Determine ticket number (1-digit / natural integer from leftmost column or row index)
@@ -171,7 +179,7 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
   return tickets;
 }
 
-function parseCSVLine(text: string): string[] {
+export function parseCSVLine(text: string, delimiter: string = ','): string[] {
   const result: string[] = [];
   let cur = '';
   let inQuotes = false;
@@ -180,7 +188,7 @@ function parseCSVLine(text: string): string[] {
     const char = text[i];
     if (char === '"') {
       inQuotes = !inQuotes;
-    } else if (char === ',' && !inQuotes) {
+    } else if (char === delimiter && !inQuotes) {
       result.push(cur.replace(/^"|"$/g, '').trim());
       cur = '';
     } else {
@@ -364,10 +372,21 @@ function doPost(e) {
 export async function fetchGoogleSheetCSV(sheetUrl: string): Promise<TicketRecord[]> {
   let csvUrl = sheetUrl.trim();
 
-  // Convert Google Spreadsheet view URL to CSV export link
-  if (csvUrl.includes('/spreadsheets/d/')) {
+  // 1. Google Spreadsheet web publish URL: /spreadsheets/d/e/2PACX-.../pub...
+  if (csvUrl.includes('/spreadsheets/d/e/')) {
+    if (!csvUrl.includes('output=csv')) {
+      if (csvUrl.includes('/pubhtml')) {
+        csvUrl = csvUrl.replace(/\/pubhtml.*$/, '/pub?output=csv');
+      } else if (csvUrl.includes('/pub')) {
+        csvUrl = csvUrl.replace(/\/pub.*$/, '/pub?output=csv');
+      } else {
+        csvUrl += (csvUrl.includes('?') ? '&' : '?') + 'output=csv';
+      }
+    }
+  } else if (csvUrl.includes('/spreadsheets/d/')) {
+    // 2. Standard edit/view URL: /spreadsheets/d/{sheetId}/edit#gid=...
     const match = csvUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-    if (match && match[1]) {
+    if (match && match[1] && match[1] !== 'e') {
       const sheetId = match[1];
       const gidMatch = csvUrl.match(/gid=([0-9]+)/);
       const gid = gidMatch ? gidMatch[1] : '0';
@@ -410,14 +429,19 @@ export async function fetchGoogleSheetCSV(sheetUrl: string): Promise<TicketRecor
         throw new Error('CORS fallback failed');
       }
     } catch {
-      throw new Error(`スプレッドシートURL「${sheetUrl}」からデータを取得できませんでした。URLまたは公開設定をご確認ください。`);
+      throw new Error(`スプレッドシートURL「${sheetUrl}」からデータを取得できませんでした。URLまたは公開設定をご確認いただくか、セルをコピーして「直接貼り付け」でお試しください。`);
     }
+  }
+
+  const lowerText = text.trim().toLowerCase();
+  if (lowerText.startsWith('<!doctype') || lowerText.startsWith('<html') || (lowerText.includes('<head>') && lowerText.includes('<body>'))) {
+    throw new Error('指定されたURLからウェブページ(HTML)が返されました。Google スプレッドシートの「ファイル」→「共有」→「ウェブに公開」で「カンマ区切り値(.csv)」を選んで公開したURLを指定するか、セルをコピーして下記「直接貼り付け」に貼り付けてください。');
   }
 
   // Parse CSV text
   const tickets = parseCSVToTickets(text);
   if (tickets.length === 0) {
-    throw new Error('取得したURLに有効なCSV受診者データが含まれていませんでした。');
+    throw new Error('取得したURLに有効な受診者データ行が見つかりませんでした。');
   }
   return tickets;
 }

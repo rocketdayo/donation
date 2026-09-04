@@ -33,12 +33,7 @@ export function loadTickets(): TicketRecord[] {
       return [];
     }
     const parsed: TicketRecord[] = JSON.parse(raw);
-    // 過去のサンプル受診者データ（黒田悠人・平松宗一郎など）を自動排除
-    const filtered = parsed.filter(t => !['黒田悠人', '平松宗一郎', '清教大和', '佐藤 健一'].includes(t.name));
-    if (filtered.length !== parsed.length) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
-    }
-    return filtered;
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
