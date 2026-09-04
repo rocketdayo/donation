@@ -63,10 +63,14 @@ export const App: React.FC = () => {
 
     const unsubscribe = subscribeToTickets(
       (firestoreTickets) => {
-        // Automatically migrate legacy sample records in Firestore to user's real initial sheet data
-        const isLegacySample = firestoreTickets.length === 0 || firestoreTickets.some(t => t.id === 'TK-001' || t.name === '佐藤 健一');
-        if (isLegacySample) {
-          syncAllTicketsToFirestore(INITIAL_TICKETS);
+        // 過去のサンプル受診者データ（黒田悠人、平松宗一郎、清教大和など）を自動排除
+        const legacyNames = ['黒田悠人', '平松宗一郎', '清教大和', '佐藤 健一'];
+        const hasLegacy = firestoreTickets.some(t => legacyNames.includes(t.name) || ['TK-1', 'TK-2', 'TK-3', 'TK-001'].includes(t.id));
+        if (hasLegacy) {
+          const cleaned = firestoreTickets.filter(t => !legacyNames.includes(t.name) && !['TK-1', 'TK-2', 'TK-3', 'TK-001'].includes(t.id));
+          syncAllTicketsToFirestore(cleaned);
+          setTickets(cleaned);
+          saveTicketsToStorage(cleaned);
           return;
         }
         setTickets(firestoreTickets);
@@ -259,15 +263,15 @@ export const App: React.FC = () => {
     });
   };
 
-  // Reset to initial sample data
+  // Reset / Clear all tickets
   const handleResetData = async () => {
-    if (window.confirm('データを初期予約データにリセットしますか？')) {
-      setTickets(SAMPLE_TICKETS);
-      saveTicketsToStorage(SAMPLE_TICKETS);
+    if (window.confirm('受診者データをすべて消去しますか？')) {
+      setTickets([]);
+      saveTicketsToStorage([]);
       try {
-        await syncAllTicketsToFirestore(SAMPLE_TICKETS);
+        await syncAllTicketsToFirestore([]);
       } catch (err) {
-        console.error('Failed to reset Firestore tickets:', err);
+        console.error('Failed to clear Firestore tickets:', err);
       }
     }
   };

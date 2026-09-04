@@ -318,7 +318,7 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
                       setInputEmail(e.target.value);
                       if (verifyError) setVerifyError(null);
                     }}
-                    placeholder="例: s25583@stu.seikyo.ed.jp"
+                    placeholder="メールアドレスを入力"
                     className="w-full pl-9 pr-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition"
                   />
                 </div>
@@ -346,28 +346,6 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
                 )}
               </button>
             </form>
-
-            {/* Quick Demo Assist for Testing */}
-            {tickets.length > 0 && (
-              <div className="pt-3 border-t border-slate-100 text-center">
-                <p className="text-[11px] text-slate-400 mb-2">登録例でテスト照合:</p>
-                <div className="flex flex-wrap items-center justify-center gap-1.5">
-                  {tickets.slice(0, 3).map(t => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => {
-                        setInputEmail(t.email);
-                        setVerifyError(null);
-                      }}
-                      className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] font-medium transition"
-                    >
-                      {t.name} ({t.email})
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Standalone Install Promotion Card */}

@@ -37,9 +37,9 @@ export const Footer: React.FC<FooterProps> = ({
                 <button
                   onClick={onResetData}
                   className="px-2.5 py-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition text-[11px]"
-                  title="予約データをリセット"
+                  title="予約データをすべて消去"
                 >
-                  初期データリセット
+                  データ全消去
                 </button>
                 <button
                   onClick={onExitAdminMode}

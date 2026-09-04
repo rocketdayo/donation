@@ -21,65 +21,26 @@ export const TIME_SLOTS = [
   '16:00'
 ];
 
-export const INITIAL_TICKETS: TicketRecord[] = [
-  {
-    id: 'TK-1',
-    ticketNumber: 1,
-    name: '黒田悠人',
-    email: 's25583@stu.seikyo.ed.jp',
-    timeSlot: '09:30',
-    attribute: '生徒',
-    scheduledDate: '2026-09-02',
-    attendance: 'absent',
-    queueStatus: 'waiting',
-    arrivedAt: '09:30',
-    lotteryResult: '',
-    notes: ''
-  },
-  {
-    id: 'TK-2',
-    ticketNumber: 2,
-    name: '平松宗一郎',
-    email: 's25719@stu.seikyo.ed.jp',
-    timeSlot: '09:30',
-    attribute: '生徒',
-    scheduledDate: '2026-09-02',
-    attendance: 'absent',
-    queueStatus: 'waiting',
-    arrivedAt: '09:40',
-    lotteryResult: '',
-    notes: '元の予約時刻: 9:40'
-  },
-  {
-    id: 'TK-3',
-    ticketNumber: 3,
-    name: '清教大和',
-    email: 's25800@stu.seikyo.ed.jp',
-    timeSlot: '09:30',
-    attribute: '生徒',
-    scheduledDate: '2026-09-02',
-    attendance: 'completed',
-    queueStatus: 'done',
-    completedAt: '10:05',
-    arrivedAt: '09:45',
-    lotteryResult: '四等',
-    notes: ''
-  }
-];
+export const INITIAL_TICKETS: TicketRecord[] = [];
 
-const STORAGE_KEY = 'blood_donation_tickets_v3';
+const STORAGE_KEY = 'blood_donation_tickets_v4';
 
 export function loadTickets(): TicketRecord[] {
-  if (typeof window === 'undefined') return INITIAL_TICKETS;
+  if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_TICKETS));
-      return INITIAL_TICKETS;
+      return [];
     }
-    return JSON.parse(raw);
+    const parsed: TicketRecord[] = JSON.parse(raw);
+    // 過去のサンプル受診者データ（黒田悠人・平松宗一郎など）を自動排除
+    const filtered = parsed.filter(t => !['黒田悠人', '平松宗一郎', '清教大和', '佐藤 健一'].includes(t.name));
+    if (filtered.length !== parsed.length) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+    }
+    return filtered;
   } catch {
-    return INITIAL_TICKETS;
+    return [];
   }
 }
 

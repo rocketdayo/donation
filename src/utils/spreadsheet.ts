@@ -3,10 +3,7 @@
  */
 import { TicketRecord, AttendanceStatus, QueueStatus } from '../types';
 
-export const DEFAULT_SHEET_CSV_TEMPLATE = `番号,時間,メアド,名前,属性,出欠,くじ引き結果
-1,9:30,s25583@stu.seikyo.ed.jp,黒田悠人,生徒,欠席,
-2,9:40,s25719@stu.seikyo.ed.jp,平松宗一郎,生徒,欠席,
-3,9:45,s25800@stu.seikyo.ed.jp,清教大和,生徒,出席,四等`;
+export const DEFAULT_SHEET_CSV_TEMPLATE = `番号,時間,メアド,名前,属性,状態,くじ引き結果`;
 
 /**
  * 30-minute time slot normalizer:

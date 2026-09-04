@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TicketRecord } from '../types';
 import { 
-  DEFAULT_SHEET_CSV_TEMPLATE, 
   parseCSVToTickets, 
   exportTicketsToCSV, 
   exportMatching7ColCSV,
@@ -249,11 +248,6 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
     }
   };
 
-  const handleLoadTemplate = () => {
-    setCsvInput(DEFAULT_SHEET_CSV_TEMPLATE);
-    setShowPasteArea(true);
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
       <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl border border-slate-200 flex flex-col max-h-[90vh] overflow-y-auto">
@@ -401,7 +395,7 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
           <div className="flex flex-col sm:flex-row gap-2">
             <input
               type="text"
-              placeholder="例: https://docs.google.com/spreadsheets/d/... または CSV公開URL"
+              placeholder="https://docs.google.com/spreadsheets/d/... または CSV公開URL"
               value={sheetUrl}
               onChange={(e) => setSheetUrl(e.target.value)}
               className="flex-1 px-3.5 py-2 text-xs bg-white border border-emerald-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-emerald-600 font-mono"
@@ -516,12 +510,6 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
               <Upload className="w-3.5 h-3.5" />
               {showPasteArea ? '貼り付け取込エリアを閉じる' : 'CSVテキストを直接貼り付けて取込 (手動インポート)'}
             </button>
-            <button
-              onClick={handleLoadTemplate}
-              className="text-xs text-slate-500 hover:text-slate-800 underline"
-            >
-              テンプレートを読込
-            </button>
           </div>
 
           {showPasteArea && (
@@ -530,7 +518,7 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
                 rows={4}
                 value={csvInput}
                 onChange={(e) => setCsvInput(e.target.value)}
-                placeholder={`番号,時間,メアド,名前,属性\n1,9:30,s25583@stu.seikyo.ed.jp,黒田悠人,生徒\n2,9:40,s25719@stu.seikyo.ed.jp,平松宗一郎,生徒`}
+                placeholder="CSVテキストをここに貼り付けてください（ヘッダー: 番号,時間,メアド,名前,属性,状態,くじ引き結果）"
                 className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-mono focus:outline-hidden focus:ring-2 focus:ring-slate-400"
               />
               <div className="flex items-center justify-between">
