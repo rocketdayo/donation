@@ -52,11 +52,19 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
   let emailIdx = headers.findIndex(h => h.includes('メアド') || h.includes('メール') || h.includes('email') || h.includes('mail') || h.includes('アドレス'));
   let slotIdx = headers.findIndex(h => h.includes('時間') || h.includes('スロット') || h.includes('slot') || h.includes('予約') || h.includes('time'));
   let attrIdx = headers.findIndex(h => h.includes('属性') || h.includes('区分') || h.includes('所属') || h.includes('役職') || h.includes('role') || h.includes('attribute') || h.includes('type'));
-  let attendIdx = headers.findIndex(h => h.includes('出席') || h.includes('出欠') || h.includes('進行') || h.includes('進捗') || h.includes('状況') || h.includes('status') || h.includes('attend') || h.includes('progress'));
+  let attendIdx = headers.findIndex(h => h.includes('状態') || h.includes('状況') || h.includes('出席') || h.includes('出欠') || h.includes('進行') || h.includes('進捗') || h.includes('ステータス') || h.includes('status') || h.includes('state') || h.includes('attend') || h.includes('progress'));
   let lotteryIdx = headers.findIndex(h => h.includes('くじ') || h.includes('賞') || h.includes('lottery') || h.includes('raffle'));
   let notesIdx = headers.findIndex(h => h.includes('備考') || h.includes('メモ') || h.includes('note'));
 
-  // Positional fallback for 5-column format: [番号, 時間, メアド, 名前, 属性]
+  // If 6 or 7 columns exist, ensure F column (index 5) is treated as attendIdx and G column (index 6) as lotteryIdx
+  if (attendIdx === -1 && headers.length >= 6) {
+    attendIdx = 5;
+  }
+  if (lotteryIdx === -1 && headers.length >= 7) {
+    lotteryIdx = 6;
+  }
+
+  // Positional fallback for standard formats: [番号, 時間, メアド, 名前, 属性, 状態, くじ引き結果]
   if (headers.length >= 5 && numIdx === -1 && slotIdx === -1 && emailIdx === -1) {
     numIdx = 0;
     slotIdx = 1;
@@ -367,9 +375,19 @@ export async function fetchGoogleSheetCSV(sheetUrl: string): Promise<TicketRecor
     }
   }
 
+  // Add timestamp cache-buster to bypass any browser or proxy caching
+  const cacheBuster = `_t=${Date.now()}`;
+  csvUrl += (csvUrl.includes('?') ? '&' : '?') + cacheBuster;
+
   let text = '';
   try {
-    const response = await fetch(csvUrl, { cache: 'no-store' });
+    const response = await fetch(csvUrl, { 
+      cache: 'no-store',
+      headers: {
+        'Pragma': 'no-cache',
+        'Cache-Control': 'no-cache'
+      }
+    });
     if (response.ok) {
       text = await response.text();
     } else {
@@ -378,8 +396,14 @@ export async function fetchGoogleSheetCSV(sheetUrl: string): Promise<TicketRecor
   } catch {
     // If direct fetch has CORS restriction or failed, try CORS proxy fallback
     try {
-      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(csvUrl)}`;
-      const proxyRes = await fetch(proxyUrl);
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(csvUrl)}&${cacheBuster}`;
+      const proxyRes = await fetch(proxyUrl, {
+        cache: 'no-store',
+        headers: {
+          'Pragma': 'no-cache',
+          'Cache-Control': 'no-cache'
+        }
+      });
       if (proxyRes.ok) {
         text = await proxyRes.text();
       } else {

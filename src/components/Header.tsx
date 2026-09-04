@@ -9,7 +9,8 @@ import {
   ShieldCheck,
   User,
   ClipboardCheck,
-  Gift
+  Gift,
+  RefreshCw
 } from 'lucide-react';
 import { sounds } from '../utils/audio';
 import { VoiceAnnouncer } from '../utils/speech';
@@ -30,6 +31,8 @@ interface HeaderProps {
   waitingCount: number;
   callingCount: number;
   completedCount: number;
+  onRefreshSheet?: () => void;
+  isSyncingSheet?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -46,6 +49,8 @@ export const Header: React.FC<HeaderProps> = ({
   waitingCount,
   callingCount,
   completedCount,
+  onRefreshSheet,
+  isSyncingSheet = false,
 }) => {
   const [logoError, setLogoError] = useState(false);
 
@@ -125,6 +130,23 @@ export const Header: React.FC<HeaderProps> = ({
                 >
                   {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
                 </button>
+
+                {/* Spreadsheet Quick Refresh / Repair Button */}
+                {onRefreshSheet && (
+                  <button
+                    onClick={onRefreshSheet}
+                    disabled={isSyncingSheet}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition ${
+                      isSyncingSheet 
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-700 cursor-wait' 
+                        : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 shadow-2xs hover:border-slate-300'
+                    }`}
+                    title="スプレッドシートから最新データを再取得し、状態（問診検査中・採血中等）を即座に修復・同期します"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isSyncingSheet ? 'animate-spin text-emerald-600' : 'text-slate-500'}`} />
+                    <span className="hidden xl:inline">{isSyncingSheet ? 'シート取得中...' : 'シート再読込'}</span>
+                  </button>
+                )}
 
                 {/* Spreadsheet Sync Button */}
                 <button

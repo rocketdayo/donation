@@ -50,6 +50,7 @@ export const App: React.FC = () => {
   const [isSpreadsheetOpen, setIsSpreadsheetOpen] = useState(false);
   const [isGuidelinesOpen, setIsGuidelinesOpen] = useState(false);
   const [detailTicket, setDetailTicket] = useState<TicketRecord | null>(null);
+  const [isSyncingSheet, setIsSyncingSheet] = useState(false);
   const [syncSettings, setSyncSettings] = useState<SyncSettings | null>(() => {
     const localUrl = localStorage.getItem('blood_donation_sheet_url') || 'https://rocketdayo.github.io/donation/';
     return { sheetUrl: localUrl, autoSync: true, intervalSec: 60 };
@@ -94,6 +95,52 @@ export const App: React.FC = () => {
     };
   }, []);
 
+  // Helper: Merge spreadsheet data with live state, restoring any explicit statuses from spreadsheet
+  const mergeSheetTicketsWithExisting = (
+    fetched: TicketRecord[],
+    current: TicketRecord[]
+  ): TicketRecord[] => {
+    const currentMap = new Map<string, TicketRecord>(current.map(t => [t.id, t]));
+
+    return fetched.map(item => {
+      const existing = currentMap.get(item.id);
+      if (!existing) {
+        return item;
+      }
+
+      // スプレッドシート側で状態が指定されている場合（問診検査中、呼び出し中、採血中、休憩中、完了など）は、
+      // スプレッドシートを正本として優先反映・修復する
+      let finalQueueStatus = item.queueStatus;
+      let finalAttendance = item.attendance;
+
+      if (item.queueStatus === 'waiting' && item.attendance === 'absent') {
+        // スプレッドシート側が待機中の場合: アプリ側ですでに進行中のステータス（呼び出し中など）があれば維持
+        if (existing.queueStatus !== 'waiting') {
+          finalQueueStatus = existing.queueStatus;
+          finalAttendance = existing.attendance;
+        }
+      } else {
+        // スプレッドシートに明示的にステータス（問診検査中、採血中、呼び出し中、休憩中、完了等）が記録されている場合
+        finalQueueStatus = item.queueStatus;
+        finalAttendance = item.attendance;
+      }
+
+      const isDone = finalQueueStatus === 'done' || finalAttendance === 'completed';
+
+      return {
+        ...item,
+        queueStatus: finalQueueStatus,
+        attendance: finalAttendance,
+        calledAt: existing.calledAt || item.calledAt,
+        completedAt: isDone 
+          ? (existing.completedAt || item.completedAt || new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })) 
+          : existing.completedAt,
+        lotteryResult: item.lotteryResult || existing.lotteryResult || '',
+        notes: item.notes || existing.notes || ''
+      };
+    });
+  };
+
   // Background Periodic Spreadsheet Fetch & Firestore Sync
   useEffect(() => {
     if (!syncSettings || !syncSettings.sheetUrl || syncSettings.autoSync === false) return;
@@ -103,44 +150,9 @@ export const App: React.FC = () => {
         const fetched = await fetchGoogleSheetCSV(syncSettings.sheetUrl);
         if (fetched && fetched.length > 0) {
           setTickets((currentTickets) => {
-            // Keep queue status and attendance progress from active state
-            const statusMap = new Map<string, {
-              attendance: TicketRecord['attendance'];
-              queueStatus: TicketRecord['queueStatus'];
-              calledAt?: string;
-              completedAt?: string;
-              lotteryResult?: string;
-            }>();
+            const merged = mergeSheetTicketsWithExisting(fetched, currentTickets);
 
-            currentTickets.forEach(c => {
-              statusMap.set(c.id, {
-                attendance: c.attendance,
-                queueStatus: c.queueStatus,
-                calledAt: c.calledAt,
-                completedAt: c.completedAt,
-                lotteryResult: c.lotteryResult
-              });
-            });
-
-            const merged: TicketRecord[] = fetched.map(item => {
-              const liveStatus = statusMap.get(item.id);
-              if (liveStatus) {
-                const isSheetDone = item.queueStatus === 'done' || item.attendance === 'completed';
-                return {
-                  ...item,
-                  // スプレッドシート側で明示的に完了とされた場合は完了、そうでなければ現場の進行状況を維持
-                  attendance: isSheetDone ? 'completed' : liveStatus.attendance,
-                  queueStatus: isSheetDone ? 'done' : liveStatus.queueStatus,
-                  calledAt: liveStatus.calledAt || item.calledAt,
-                  completedAt: isSheetDone ? (liveStatus.completedAt || item.completedAt || new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })) : liveStatus.completedAt,
-                  lotteryResult: item.lotteryResult || liveStatus.lotteryResult || ''
-                };
-              }
-              // 新たに追加された受診者：F列未記入なら「待機中（欠席＝未完了）」として追加される
-              return item;
-            });
-
-            // Save merged tickets to Firestore so all connected devices update
+            // Save merged & restored tickets to Firestore so all connected devices stay repaired
             syncAllTicketsToFirestore(merged).catch(e => console.warn('Auto sync firestore write notice:', e));
             saveTicketsToStorage(merged);
             return merged;
@@ -151,7 +163,7 @@ export const App: React.FC = () => {
       }
     };
 
-    // Initial fetch once mounted
+    // Initial fetch once mounted (restores data immediately on page load / reload)
     runAutoFetch();
 
     const intervalMs = Math.max(15, (syncSettings.intervalSec || 60)) * 1000;
@@ -159,6 +171,27 @@ export const App: React.FC = () => {
 
     return () => clearInterval(intervalTimer);
   }, [syncSettings?.sheetUrl, syncSettings?.autoSync, syncSettings?.intervalSec]);
+
+  // Manual Quick Refresh from Google Sheet (Repairs live data immediately)
+  const handleRefreshSheet = async () => {
+    if (!syncSettings?.sheetUrl) return;
+    setIsSyncingSheet(true);
+    try {
+      const fetched = await fetchGoogleSheetCSV(syncSettings.sheetUrl);
+      if (fetched && fetched.length > 0) {
+        setTickets(currentTickets => {
+          const merged = mergeSheetTicketsWithExisting(fetched, currentTickets);
+          syncAllTicketsToFirestore(merged).catch(e => console.warn('Refresh firestore write notice:', e));
+          saveTicketsToStorage(merged);
+          return merged;
+        });
+      }
+    } catch (err) {
+      console.warn('Manual sheet refresh error:', err);
+    } finally {
+      setIsSyncingSheet(false);
+    }
+  };
 
   // Audio Context unlock on initial user gesture (crucial for mobile audio/speech)
   useEffect(() => {
@@ -239,24 +272,7 @@ export const App: React.FC = () => {
   // Import tickets from spreadsheet / CSV
   const handleImportTickets = async (newTickets: TicketRecord[]) => {
     setTickets(currentTickets => {
-      const liveMap = new Map<string, TicketRecord>(currentTickets.map(t => [t.id, t]));
-      const merged = newTickets.map(item => {
-        const existing = liveMap.get(item.id);
-        if (existing) {
-          const isSheetDone = item.queueStatus === 'done' || item.attendance === 'completed';
-          return {
-            ...item,
-            attendance: isSheetDone ? 'completed' : existing.attendance,
-            queueStatus: isSheetDone ? 'done' : existing.queueStatus,
-            calledAt: existing.calledAt || item.calledAt,
-            completedAt: isSheetDone ? (existing.completedAt || item.completedAt) : existing.completedAt,
-            lotteryResult: item.lotteryResult || existing.lotteryResult || '',
-          };
-        }
-        // 新規受診者はF列の指定に従う（未記入なら待機中・欠席）
-        return item;
-      });
-
+      const merged = mergeSheetTicketsWithExisting(newTickets, currentTickets);
       saveTicketsToStorage(merged);
       syncAllTicketsToFirestore(merged).catch(err => console.error('Failed to sync imported tickets to Firestore:', err));
       return merged;
@@ -298,6 +314,8 @@ export const App: React.FC = () => {
         waitingCount={waitingCount}
         callingCount={callingCount}
         completedCount={completedCount}
+        onRefreshSheet={handleRefreshSheet}
+        isSyncingSheet={isSyncingSheet}
       />
 
       {/* Main Area */}
