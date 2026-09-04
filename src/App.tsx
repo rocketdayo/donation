@@ -216,21 +216,21 @@ export const App: React.FC = () => {
         const isDone = merged.queueStatus === 'done' || merged.attendance === 'completed';
         const queueLabel: Record<string, string> = {
           waiting: '待機中',
-          called: '呼出中',
-          interview: '問診中',
+          called: '呼び出し中',
+          interview: '問診検査中',
           donating: '採血中',
           resting: '休憩中',
           done: '完了',
           absent: '欠席'
         };
-        const statusText = isDone ? '出席' : (queueLabel[merged.queueStatus] || '欠席');
+        const statusText = isDone ? '完了' : (queueLabel[merged.queueStatus] || '待機中');
 
         sendUpdateToGoogleSheet(syncSettings.writeWebhookUrl, {
           ticketNumber: merged.ticketNumber,
           name: merged.name,
           status: statusText,
           lotteryResult: merged.lotteryResult || '',
-          attendance: isDone ? '出席' : '欠席'
+          attendance: isDone ? '完了' : '欠席'
         }).catch(err => console.warn('Failed to send status update to Google Sheet:', err));
       }
     }

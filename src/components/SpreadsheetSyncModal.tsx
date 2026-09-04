@@ -155,7 +155,7 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
       const success = await sendUpdateToGoogleSheet(writeWebhookUrl.trim(), {
         ticketNumber: firstTicket.ticketNumber,
         name: firstTicket.name,
-        status: '呼出中 (テスト送信)',
+        status: '呼び出し中 (テスト送信)',
         lotteryResult: 'テスト済',
         attendance: '欠席'
       });
@@ -262,7 +262,7 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
                 スプレッドシート連携＆F列・G列自動書き込み設定
               </h3>
               <p className="text-xs text-slate-500">
-                進行状況（待機・呼出・問診・採血・完了）やくじ結果をスプレッドシートへ連動します
+                進行状況（待機中・呼び出し中・問診検査中・採血中・休憩中・完了）やくじ結果をスプレッドシートへ連動します
               </p>
             </div>
           </div>

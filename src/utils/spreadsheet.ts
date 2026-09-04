@@ -122,10 +122,10 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
     ) {
       attendance = 'completed';
       queueStatus = 'done';
-    } else if (cleanAttendance.includes('呼出') || cleanAttendance.includes('called')) {
+    } else if (cleanAttendance.includes('呼出') || cleanAttendance.includes('呼び出し') || cleanAttendance.includes('called')) {
       attendance = 'absent';
       queueStatus = 'called';
-    } else if (cleanAttendance.includes('問診') || cleanAttendance.includes('interview')) {
+    } else if (cleanAttendance.includes('問診') || cleanAttendance.includes('検査') || cleanAttendance.includes('interview')) {
       attendance = 'absent';
       queueStatus = 'interview';
     } else if (cleanAttendance.includes('採血') || cleanAttendance.includes('献血') || cleanAttendance.includes('donating')) {
@@ -138,7 +138,7 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
       attendance = 'absent';
       queueStatus = 'absent';
     } else {
-      // F列が空欄、未入力、または「未受付」「待機」「欠席」「予約」などの場合：
+      // F列が空欄、未入力、または「未受付」「待機中」「待機」「欠席」「予約」などの場合：
       // まだ完了してない人として「待機中（欠席）」にする
       attendance = 'absent';
       queueStatus = 'waiting';
@@ -195,8 +195,8 @@ export function exportTicketsToCSV(tickets: TicketRecord[]): string {
 
   const queueLabel: Record<string, string> = {
     waiting: '待機中',
-    called: '呼出中',
-    interview: '問診中',
+    called: '呼び出し中',
+    interview: '問診検査中',
     donating: '採血中',
     resting: '休憩中',
     done: '完了',
@@ -205,7 +205,7 @@ export function exportTicketsToCSV(tickets: TicketRecord[]): string {
 
   const rows = tickets.map(t => {
     const isCompleted = t.queueStatus === 'done' || t.attendance === 'completed';
-    const attendanceExport = isCompleted ? '出席' : '欠席';
+    const attendanceExport = isCompleted ? '完了' : '欠席';
 
     return [
       t.ticketNumber,
@@ -233,8 +233,8 @@ export function exportMatching7ColCSV(tickets: TicketRecord[]): string {
 
   const queueLabel: Record<string, string> = {
     waiting: '待機中',
-    called: '呼出中',
-    interview: '問診中',
+    called: '呼び出し中',
+    interview: '問診検査中',
     donating: '採血中',
     resting: '休憩中',
     done: '完了',
@@ -243,8 +243,8 @@ export function exportMatching7ColCSV(tickets: TicketRecord[]): string {
 
   const rows = tickets.map(t => {
     const isDone = t.queueStatus === 'done' || t.attendance === 'completed';
-    // F列: 完了した人は「出席」または「完了」、進行中の人はそのステージ（呼出中、問診中等）
-    const statusText = isDone ? '出席' : (queueLabel[t.queueStatus] || '欠席');
+    // F列: 完了した人は「完了」、進行中の人はそのステージ（待機中、呼び出し中、問診検査中、採血中、休憩中）
+    const statusText = isDone ? '完了' : (queueLabel[t.queueStatus] || '待機中');
 
     return [
       t.ticketNumber,
