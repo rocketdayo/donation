@@ -20,7 +20,7 @@ import {
   saveSyncSettings,
   SyncSettings
 } from './firebase';
-import { fetchGoogleSheetCSV } from './utils/spreadsheet';
+import { fetchGoogleSheetCSV, sendUpdateToGoogleSheet } from './utils/spreadsheet';
 
 // Components
 import { Header } from './components/Header';
@@ -202,6 +202,33 @@ export const App: React.FC = () => {
       await updateFirestoreTicket(id, partial);
     } catch (err) {
       console.error('Failed to update ticket in Firestore:', err);
+    }
+
+    // Google Apps Script Webhook 経由でスプレッドシート F列・G列 に自動書き込み
+    if (syncSettings?.writeWebhookUrl) {
+      const targetTicket = tickets.find(t => t.id === id);
+      if (targetTicket) {
+        const merged = { ...targetTicket, ...partial };
+        const isDone = merged.queueStatus === 'done' || merged.attendance === 'completed';
+        const queueLabel: Record<string, string> = {
+          waiting: '待機中',
+          called: '呼出中',
+          interview: '問診中',
+          donating: '採血中',
+          resting: '休憩中',
+          done: '完了',
+          absent: '欠席'
+        };
+        const statusText = isDone ? '出席' : (queueLabel[merged.queueStatus] || '欠席');
+
+        sendUpdateToGoogleSheet(syncSettings.writeWebhookUrl, {
+          ticketNumber: merged.ticketNumber,
+          name: merged.name,
+          status: statusText,
+          lotteryResult: merged.lotteryResult || '',
+          attendance: isDone ? '出席' : '欠席'
+        }).catch(err => console.warn('Failed to send status update to Google Sheet:', err));
+      }
     }
   };
 

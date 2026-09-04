@@ -229,6 +229,131 @@ export function exportTicketsToCSV(tickets: TicketRecord[]): string {
 }
 
 /**
+ * 7列のスプレッドシート（A:番号, B:時間, C:メアド, D:名前, E:属性, F:状態, G:くじ引き結果）と完全一致するCSVを生成
+ */
+export function exportMatching7ColCSV(tickets: TicketRecord[]): string {
+  const headers = ['番号', '時間', 'メアド', '名前', '属性', '状態', 'くじ引き結果'];
+
+  const queueLabel: Record<string, string> = {
+    waiting: '待機中',
+    called: '呼出中',
+    interview: '問診中',
+    donating: '採血中',
+    resting: '休憩中',
+    done: '完了',
+    absent: '欠席'
+  };
+
+  const rows = tickets.map(t => {
+    const isDone = t.queueStatus === 'done' || t.attendance === 'completed';
+    // F列: 完了した人は「出席」または「完了」、進行中の人はそのステージ（呼出中、問診中等）
+    const statusText = isDone ? '出席' : (queueLabel[t.queueStatus] || '欠席');
+
+    return [
+      t.ticketNumber,
+      `"${t.timeSlot.replace(/"/g, '""')}"`,
+      `"${t.email.replace(/"/g, '""')}"`,
+      `"${t.name.replace(/"/g, '""')}"`,
+      `"${(t.attribute || '').replace(/"/g, '""')}"`,
+      `"${statusText}"`,
+      `"${(t.lotteryResult || '').replace(/"/g, '""')}"`
+    ];
+  });
+
+  return [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+}
+
+/**
+ * Google Apps Script (GAS) Webhook 経由でスプレッドシートの F列・G列 を直接更新
+ */
+export async function sendUpdateToGoogleSheet(
+  webhookUrl: string,
+  payload: {
+    ticketNumber: number;
+    name?: string;
+    status: string;
+    lotteryResult?: string;
+    attendance?: string;
+  }
+): Promise<boolean> {
+  if (!webhookUrl || !webhookUrl.startsWith('http')) return false;
+
+  try {
+    // text/plain を使用してブラウザのプリフライト(OPTIONS)を回避
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8'
+      },
+      body: JSON.stringify(payload),
+      mode: 'no-cors'
+    });
+    return true;
+  } catch (err) {
+    console.warn('Failed to send status update to Google Sheet webhook:', err);
+    return false;
+  }
+}
+
+/**
+ * GoogleスプレッドシートにコピペするだけのGoogle Apps Script (GAS) コード
+ */
+export const GOOGLE_APPS_SCRIPT_CODE = `/**
+ * 献血アプリ → Googleスプレッドシート F列(状態)・G列(くじ結果) 自動更新スクリプト
+ *
+ * 【導入手順 (2分で完了)】
+ * 1. スプレッドシートのメニュー「拡張機能」>「Apps Script」を開きます。
+ * 2. 入力欄のコードをすべて削除し、このコードを貼り付けて保存します。
+ * 3. 右上の「デプロイ」>「新しいデプロイ」を開きます。
+ * 4. 種類の選択(歯車アイコン)で「ウェブアプリ」を選択します。
+ * 5. 設定：
+ *    - 次のユーザーとして実行: 「自分」
+ *    - アクセスできるユーザー: 「全員 (Anyone)」
+ * 6. 「デプロイ」を押し、発行された「ウェブアプリのURL」をアプリに貼り付けます。
+ */
+function doPost(e) {
+  try {
+    var data = JSON.parse(e.postData.contents);
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var values = sheet.getDataRange().getValues();
+
+    // A列の「番号」と一致する行を検索 (1行目は見出し)
+    var targetRow = -1;
+    for (var i = 1; i < values.length; i++) {
+      if (String(values[i][0]).trim() == String(data.ticketNumber).trim()) {
+        targetRow = i + 1; // 1-indexed
+        break;
+      }
+    }
+
+    if (targetRow > 0) {
+      // F列 (列番号6) に現在の状態を記述
+      if (data.status) {
+        sheet.getRange(targetRow, 6).setValue(data.status);
+      }
+      // G列 (列番号7) にくじ引き結果を記述
+      if (data.lotteryResult !== undefined && data.lotteryResult !== null && data.lotteryResult !== '') {
+        sheet.getRange(targetRow, 7).setValue(data.lotteryResult);
+      }
+      SpreadsheetApp.flush();
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({
+      result: 'success',
+      row: targetRow,
+      ticketNumber: data.ticketNumber,
+      status: data.status
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      result: 'error',
+      message: err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+`;
+
+/**
  * Fetch spreadsheet CSV with support for Google Sheets, GitHub raw/pages, and CORS proxies
  */
 export async function fetchGoogleSheetCSV(sheetUrl: string): Promise<TicketRecord[]> {
