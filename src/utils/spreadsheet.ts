@@ -55,7 +55,7 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
   let emailIdx = headers.findIndex(h => h.includes('メアド') || h.includes('メール') || h.includes('email') || h.includes('mail') || h.includes('アドレス'));
   let slotIdx = headers.findIndex(h => h.includes('時間') || h.includes('スロット') || h.includes('slot') || h.includes('予約') || h.includes('time'));
   let attrIdx = headers.findIndex(h => h.includes('属性') || h.includes('区分') || h.includes('所属') || h.includes('役職') || h.includes('role') || h.includes('attribute') || h.includes('type'));
-  let attendIdx = headers.findIndex(h => h.includes('出席') || h.includes('出欠') || h.includes('状況') || h.includes('status') || h.includes('attend'));
+  let attendIdx = headers.findIndex(h => h.includes('出席') || h.includes('出欠') || h.includes('進行') || h.includes('進捗') || h.includes('状況') || h.includes('status') || h.includes('attend') || h.includes('progress'));
   let lotteryIdx = headers.findIndex(h => h.includes('くじ') || h.includes('賞') || h.includes('lottery') || h.includes('raffle'));
   let notesIdx = headers.findIndex(h => h.includes('備考') || h.includes('メモ') || h.includes('note'));
 
@@ -105,7 +105,9 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
     const { slot: timeSlot, originalNote } = normalizeTimeSlot(rawSlot);
 
     const attribute = (attrIdx >= 0 && cols[attrIdx]) ? cols[attrIdx].trim() : undefined;
-    const rawAttendance = (attendIdx >= 0 && cols[attendIdx]) ? cols[attendIdx].trim() : '出席';
+    
+    // Column F: 出欠・進行状況 (空欄または未指定の場合は空文字。自動で完了にしない)
+    const rawAttendance = (attendIdx >= 0 && cols[attendIdx]) ? cols[attendIdx].trim() : '';
     const lotteryResult = (lotteryIdx >= 0 && cols[lotteryIdx]) ? cols[lotteryIdx].trim() : undefined;
     const parsedNotes = (notesIdx >= 0 && cols[notesIdx]) ? cols[notesIdx].trim() : '';
     const combinedNotes = [originalNote, parsedNotes].filter(Boolean).join(' / ');
@@ -113,11 +115,34 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
     let attendance: AttendanceStatus = 'absent';
     let queueStatus: QueueStatus = 'waiting';
 
-    if (rawAttendance.includes('出席') || rawAttendance.includes('完了') || rawAttendance.toLowerCase().includes('done')) {
+    const cleanAttendance = rawAttendance.toLowerCase();
+    if (
+      cleanAttendance.includes('完了') || 
+      cleanAttendance.includes('done') || 
+      cleanAttendance.includes('済') || 
+      cleanAttendance.includes('終了') || 
+      cleanAttendance.includes('出席')
+    ) {
       attendance = 'completed';
       queueStatus = 'done';
+    } else if (cleanAttendance.includes('呼出') || cleanAttendance.includes('called')) {
+      attendance = 'absent';
+      queueStatus = 'called';
+    } else if (cleanAttendance.includes('問診') || cleanAttendance.includes('interview')) {
+      attendance = 'absent';
+      queueStatus = 'interview';
+    } else if (cleanAttendance.includes('採血') || cleanAttendance.includes('献血') || cleanAttendance.includes('donating')) {
+      attendance = 'absent';
+      queueStatus = 'donating';
+    } else if (cleanAttendance.includes('休憩') || cleanAttendance.includes('resting')) {
+      attendance = 'absent';
+      queueStatus = 'resting';
+    } else if (cleanAttendance.includes('キャンセル') || cleanAttendance.includes('cancel')) {
+      attendance = 'absent';
+      queueStatus = 'absent';
     } else {
-      // まだ完了してない人は欠席
+      // F列が空欄、未入力、または「未受付」「待機」「欠席」「予約」などの場合：
+      // まだ完了してない人として「待機中（欠席）」にする
       attendance = 'absent';
       queueStatus = 'waiting';
     }

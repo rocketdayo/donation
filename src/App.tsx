@@ -105,6 +105,7 @@ export const App: React.FC = () => {
               queueStatus: TicketRecord['queueStatus'];
               calledAt?: string;
               completedAt?: string;
+              lotteryResult?: string;
             }>();
 
             currentTickets.forEach(c => {
@@ -112,21 +113,26 @@ export const App: React.FC = () => {
                 attendance: c.attendance,
                 queueStatus: c.queueStatus,
                 calledAt: c.calledAt,
-                completedAt: c.completedAt
+                completedAt: c.completedAt,
+                lotteryResult: c.lotteryResult
               });
             });
 
             const merged: TicketRecord[] = fetched.map(item => {
               const liveStatus = statusMap.get(item.id);
               if (liveStatus) {
+                const isSheetDone = item.queueStatus === 'done' || item.attendance === 'completed';
                 return {
                   ...item,
-                  attendance: liveStatus.attendance,
-                  queueStatus: liveStatus.queueStatus,
-                  calledAt: liveStatus.calledAt,
-                  completedAt: liveStatus.completedAt
+                  // スプレッドシート側で明示的に完了とされた場合は完了、そうでなければ現場の進行状況を維持
+                  attendance: isSheetDone ? 'completed' : liveStatus.attendance,
+                  queueStatus: isSheetDone ? 'done' : liveStatus.queueStatus,
+                  calledAt: liveStatus.calledAt || item.calledAt,
+                  completedAt: isSheetDone ? (liveStatus.completedAt || item.completedAt || new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })) : liveStatus.completedAt,
+                  lotteryResult: item.lotteryResult || liveStatus.lotteryResult || ''
                 };
               }
+              // 新たに追加された受診者：F列未記入なら「待機中（欠席＝未完了）」として追加される
               return item;
             });
 
@@ -201,13 +207,29 @@ export const App: React.FC = () => {
 
   // Import tickets from spreadsheet / CSV
   const handleImportTickets = async (newTickets: TicketRecord[]) => {
-    setTickets(newTickets);
-    saveTicketsToStorage(newTickets);
-    try {
-      await syncAllTicketsToFirestore(newTickets);
-    } catch (err) {
-      console.error('Failed to sync imported tickets to Firestore:', err);
-    }
+    setTickets(currentTickets => {
+      const liveMap = new Map<string, TicketRecord>(currentTickets.map(t => [t.id, t]));
+      const merged = newTickets.map(item => {
+        const existing = liveMap.get(item.id);
+        if (existing) {
+          const isSheetDone = item.queueStatus === 'done' || item.attendance === 'completed';
+          return {
+            ...item,
+            attendance: isSheetDone ? 'completed' : existing.attendance,
+            queueStatus: isSheetDone ? 'done' : existing.queueStatus,
+            calledAt: existing.calledAt || item.calledAt,
+            completedAt: isSheetDone ? (existing.completedAt || item.completedAt) : existing.completedAt,
+            lotteryResult: item.lotteryResult || existing.lotteryResult || '',
+          };
+        }
+        // 新規受診者はF列の指定に従う（未記入なら待機中・欠席）
+        return item;
+      });
+
+      saveTicketsToStorage(merged);
+      syncAllTicketsToFirestore(merged).catch(err => console.error('Failed to sync imported tickets to Firestore:', err));
+      return merged;
+    });
   };
 
   // Reset to initial sample data
