@@ -161,8 +161,8 @@ export async function setFirestoreTicket(ticket: TicketRecord): Promise<void> {
 export interface SyncSettings {
   sheetUrl: string;
   writeWebhookUrl?: string;
-  autoSync: boolean;
-  intervalSec: number;
+  autoSync?: boolean;
+  intervalSec?: number;
   lastSyncedAt?: string;
   lastSyncCount?: number;
 }

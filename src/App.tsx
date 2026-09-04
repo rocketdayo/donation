@@ -50,7 +50,6 @@ export const App: React.FC = () => {
   const [isSpreadsheetOpen, setIsSpreadsheetOpen] = useState(false);
   const [isGuidelinesOpen, setIsGuidelinesOpen] = useState(false);
   const [detailTicket, setDetailTicket] = useState<TicketRecord | null>(null);
-  const [isSyncingSheet, setIsSyncingSheet] = useState(false);
   const [syncSettings, setSyncSettings] = useState<SyncSettings | null>(() => {
     const localUrl = localStorage.getItem('blood_donation_sheet_url') || 'https://rocketdayo.github.io/donation/';
     return { sheetUrl: localUrl, autoSync: true, intervalSec: 60 };
@@ -141,58 +140,6 @@ export const App: React.FC = () => {
     });
   };
 
-  // Background Periodic Spreadsheet Fetch & Firestore Sync
-  useEffect(() => {
-    if (!syncSettings || !syncSettings.sheetUrl || syncSettings.autoSync === false) return;
-
-    const runAutoFetch = async () => {
-      try {
-        const fetched = await fetchGoogleSheetCSV(syncSettings.sheetUrl);
-        if (fetched && fetched.length > 0) {
-          setTickets((currentTickets) => {
-            const merged = mergeSheetTicketsWithExisting(fetched, currentTickets);
-
-            // Save merged & restored tickets to Firestore so all connected devices stay repaired
-            syncAllTicketsToFirestore(merged).catch(e => console.warn('Auto sync firestore write notice:', e));
-            saveTicketsToStorage(merged);
-            return merged;
-          });
-        }
-      } catch (err) {
-        console.warn('Periodic sheet sync error:', err);
-      }
-    };
-
-    // Initial fetch once mounted (restores data immediately on page load / reload)
-    runAutoFetch();
-
-    const intervalMs = Math.max(15, (syncSettings.intervalSec || 60)) * 1000;
-    const intervalTimer = setInterval(runAutoFetch, intervalMs);
-
-    return () => clearInterval(intervalTimer);
-  }, [syncSettings?.sheetUrl, syncSettings?.autoSync, syncSettings?.intervalSec]);
-
-  // Manual Quick Refresh from Google Sheet (Repairs live data immediately)
-  const handleRefreshSheet = async () => {
-    if (!syncSettings?.sheetUrl) return;
-    setIsSyncingSheet(true);
-    try {
-      const fetched = await fetchGoogleSheetCSV(syncSettings.sheetUrl);
-      if (fetched && fetched.length > 0) {
-        setTickets(currentTickets => {
-          const merged = mergeSheetTicketsWithExisting(fetched, currentTickets);
-          syncAllTicketsToFirestore(merged).catch(e => console.warn('Refresh firestore write notice:', e));
-          saveTicketsToStorage(merged);
-          return merged;
-        });
-      }
-    } catch (err) {
-      console.warn('Manual sheet refresh error:', err);
-    } finally {
-      setIsSyncingSheet(false);
-    }
-  };
-
   // Audio Context unlock on initial user gesture (crucial for mobile audio/speech)
   useEffect(() => {
     const handleGesture = () => {
@@ -220,7 +167,7 @@ export const App: React.FC = () => {
     }
   };
 
-  // Update single ticket record (sync to Firestore + optimistic local update)
+  // Update single ticket record (sync to Firestore + optimistic local update, internal app/cloud authoritative)
   const handleUpdateTicket = async (id: string, partial: Partial<TicketRecord>) => {
     // Optimistic local update
     setTickets(prev => {
@@ -234,38 +181,11 @@ export const App: React.FC = () => {
       return next;
     });
 
-    // Update in Firestore
+    // Update in Firestore (all connected staff and participant screens update in real time)
     try {
       await updateFirestoreTicket(id, partial);
     } catch (err) {
       console.error('Failed to update ticket in Firestore:', err);
-    }
-
-    // Google Apps Script Webhook 経由でスプレッドシート F列・G列 に自動書き込み
-    if (syncSettings?.writeWebhookUrl) {
-      const targetTicket = tickets.find(t => t.id === id);
-      if (targetTicket) {
-        const merged = { ...targetTicket, ...partial };
-        const isDone = merged.queueStatus === 'done' || merged.attendance === 'completed';
-        const queueLabel: Record<string, string> = {
-          waiting: '待機中',
-          called: '呼び出し中',
-          interview: '問診検査中',
-          donating: '採血中',
-          resting: '休憩中',
-          done: '完了',
-          absent: '欠席'
-        };
-        const statusText = isDone ? '完了' : (queueLabel[merged.queueStatus] || '待機中');
-
-        sendUpdateToGoogleSheet(syncSettings.writeWebhookUrl, {
-          ticketNumber: merged.ticketNumber,
-          name: merged.name,
-          status: statusText,
-          lotteryResult: merged.lotteryResult || '',
-          attendance: isDone ? '完了' : '欠席'
-        }).catch(err => console.warn('Failed to send status update to Google Sheet:', err));
-      }
     }
   };
 
@@ -314,8 +234,6 @@ export const App: React.FC = () => {
         waitingCount={waitingCount}
         callingCount={callingCount}
         completedCount={completedCount}
-        onRefreshSheet={handleRefreshSheet}
-        isSyncingSheet={isSyncingSheet}
       />
 
       {/* Main Area */}
