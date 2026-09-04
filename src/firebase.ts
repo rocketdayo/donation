@@ -93,12 +93,7 @@ export function subscribeToTickets(
     ticketsCol,
     async (snapshot) => {
       if (snapshot.empty) {
-        // Seed initial tickets if database collection is empty
-        try {
-          await seedInitialTickets();
-        } catch (e) {
-          console.warn('Failed to seed initial data:', e);
-        }
+        onUpdate([]);
         return;
       }
 

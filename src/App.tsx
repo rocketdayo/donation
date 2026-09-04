@@ -63,16 +63,6 @@ export const App: React.FC = () => {
 
     const unsubscribe = subscribeToTickets(
       (firestoreTickets) => {
-        // 過去のサンプル受診者データ（黒田悠人、平松宗一郎、清教大和など）を自動排除
-        const legacyNames = ['黒田悠人', '平松宗一郎', '清教大和', '佐藤 健一'];
-        const hasLegacy = firestoreTickets.some(t => legacyNames.includes(t.name) || ['TK-1', 'TK-2', 'TK-3', 'TK-001'].includes(t.id));
-        if (hasLegacy) {
-          const cleaned = firestoreTickets.filter(t => !legacyNames.includes(t.name) && !['TK-1', 'TK-2', 'TK-3', 'TK-001'].includes(t.id));
-          syncAllTicketsToFirestore(cleaned);
-          setTickets(cleaned);
-          saveTicketsToStorage(cleaned);
-          return;
-        }
         setTickets(firestoreTickets);
         saveTicketsToStorage(firestoreTickets);
         setIsFirebaseConnected(true);
@@ -191,12 +181,14 @@ export const App: React.FC = () => {
 
   // Import tickets from spreadsheet / CSV
   const handleImportTickets = async (newTickets: TicketRecord[]) => {
-    setTickets(currentTickets => {
-      const merged = mergeSheetTicketsWithExisting(newTickets, currentTickets);
-      saveTicketsToStorage(merged);
-      syncAllTicketsToFirestore(merged).catch(err => console.error('Failed to sync imported tickets to Firestore:', err));
-      return merged;
-    });
+    const merged = mergeSheetTicketsWithExisting(newTickets, tickets);
+    setTickets(merged);
+    saveTicketsToStorage(merged);
+    try {
+      await syncAllTicketsToFirestore(merged);
+    } catch (err) {
+      console.error('Failed to sync imported tickets to Firestore:', err);
+    }
   };
 
   // Reset / Clear all tickets
