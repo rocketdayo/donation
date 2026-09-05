@@ -33,6 +33,7 @@ import { TicketDetailModal } from './components/TicketDetailModal';
 import { DonationGuidelinesModal } from './components/DonationGuidelinesModal';
 import { Footer } from './components/Footer';
 import { AdminAuthModal } from './components/AdminAuthModal';
+import { LoadingScreen } from './components/LoadingScreen';
 
 export const App: React.FC = () => {
   // State
@@ -42,6 +43,7 @@ export const App: React.FC = () => {
   const [adminTab, setAdminTab] = useState<AdminTabType>('queue');
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isFirebaseConnected, setIsFirebaseConnected] = useState<boolean>(false);
+  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   );
@@ -57,6 +59,11 @@ export const App: React.FC = () => {
 
   // Initialize and subscribe to Firestore
   useEffect(() => {
+    // Safety timer: fallback from loading screen after 1.5s if offline/cached
+    const timer = setTimeout(() => {
+      setIsInitialLoading(false);
+    }, 1500);
+
     testConnection().then((ok) => {
       setIsFirebaseConnected(ok);
     });
@@ -66,9 +73,11 @@ export const App: React.FC = () => {
         setTickets(firestoreTickets);
         saveTicketsToStorage(firestoreTickets);
         setIsFirebaseConnected(true);
+        setIsInitialLoading(false);
       },
       (err) => {
         console.warn('Firestore subscription offline, using cached tickets:', err);
+        setIsInitialLoading(false);
       }
     );
 
@@ -79,6 +88,7 @@ export const App: React.FC = () => {
     });
 
     return () => {
+      clearTimeout(timer);
       unsubscribe();
       unsubSettings();
     };
@@ -232,13 +242,16 @@ export const App: React.FC = () => {
 
       {/* Main Area */}
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5">
-        {!isAdminMode ? (
+        {isInitialLoading && tickets.length === 0 ? (
+          <LoadingScreen onSkip={() => setIsInitialLoading(false)} />
+        ) : !isAdminMode ? (
           // USER VIEW: My Ticket Only (Clean, calm, high quality)
           <MyTicketView
             tickets={tickets}
             notificationPermission={notificationPermission}
             onReqNotifications={handleRequestNotification}
             onSwitchToAdmin={() => setIsAdminAuthOpen(true)}
+            isLoading={isInitialLoading}
           />
         ) : (
           // ADMIN VIEW: Progress Board & Time Slots

@@ -29,12 +29,14 @@ import { NotificationManager } from '../utils/notifications';
 import { sounds } from '../utils/audio';
 import { auth } from '../firebase';
 import { DonationGuidelines } from './DonationGuidelines';
+import { LoadingScreen } from './LoadingScreen';
 
 interface MyTicketViewProps {
   tickets: TicketRecord[];
   notificationPermission: NotificationPermission;
   onReqNotifications: () => void;
   onSwitchToAdmin?: () => void;
+  isLoading?: boolean;
 }
 
 const STORAGE_EMAIL_KEY = 'blood_donation_user_email';
@@ -43,7 +45,8 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
   tickets,
   notificationPermission,
   onReqNotifications,
-  onSwitchToAdmin
+  onSwitchToAdmin,
+  isLoading = false,
 }) => {
   // Saved or verified user email
   const [userEmail, setUserEmail] = useState<string>(() => {
@@ -283,6 +286,18 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
     setNotifSent(true);
     setTimeout(() => setNotifSent(false), 4000);
   };
+
+  // If initial tickets or user's ticket is loading from cloud, display clear loading screen
+  if (isLoading && (!currentTicket || tickets.length === 0)) {
+    return (
+      <div className="max-w-xl mx-auto space-y-5 px-1 py-2">
+        <LoadingScreen
+          message="整理券データを読み込んでいます..."
+          subMessage="クラウドから最新の受付・整理券情報を取得中"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-xl mx-auto space-y-5 px-1 py-2">

@@ -311,7 +311,7 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
                 rows={4}
                 value={csvInput}
                 onChange={(e) => setCsvInput(e.target.value)}
-                placeholder={"スプレッドシートのセルをコピーしてここに貼り付け（Ctrl+V）\n例:\n1\t9:30\ts25583@stu.seikyo.ed.jp\t黒田悠人\t生徒\n2\t9:50\ts25719@stu.seikyo.ed.jp\t平松宗一郎\t生徒\n3\t10:00\ts99999@stu.seikyo.ed.jp\tデモ太郎\t生徒"}
+                placeholder="スプレッドシートのセル（A列〜E列）をコピーして、ここに貼り付けてください（Ctrl+V / ⌘+V）"
                 className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-hidden focus:ring-2 focus:ring-emerald-500 whitespace-pre"
               />
               <div className="flex items-center justify-between">
