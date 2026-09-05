@@ -1,3 +1,3 @@
 https://rocketdayo.github.io/donation/
 
-ver.28
+ver.30
