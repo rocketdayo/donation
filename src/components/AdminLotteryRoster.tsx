@@ -14,6 +14,7 @@ import { TicketRecord, AttendanceStatus } from '../types';
 interface AdminLotteryRosterProps {
   tickets: TicketRecord[];
   onUpdateLotteryResult: (ticketId: string, result: string) => void;
+  onUpdateTicket?: (ticketId: string, updates: Partial<TicketRecord>) => void;
   onOpenSpreadsheet?: () => void;
 }
 
@@ -30,6 +31,7 @@ const LOTTERY_OPTIONS = [
 export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
   tickets,
   onUpdateLotteryResult,
+  onUpdateTicket,
   onOpenSpreadsheet
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -101,22 +103,42 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
     };
   }, [tickets]);
 
-  // Format attendance display: 完了した人は出席、まだ完了してない人は欠席
-  const renderAttendanceBadge = (ticket: TicketRecord) => {
+  // Toggle attendance status (出席 ↔ 欠席) with 1 click to easily revert accidental completion
+  const handleToggleAttendance = (ticket: TicketRecord) => {
+    if (!onUpdateTicket) return;
     const completed = isTicketCompleted(ticket);
     if (completed) {
-      // Soft peach/pink background with red text as shown in user's image: 「出席」
-      return (
-        <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold bg-[#fed7d7] text-[#c53030] border border-rose-300/80 shadow-2xs select-none">
-          出席
-        </span>
-      );
+      // Revert from completed to waiting / absent
+      onUpdateTicket(ticket.id, {
+        attendance: 'absent',
+        queueStatus: 'waiting'
+      });
+    } else {
+      // Mark as completed / present
+      onUpdateTicket(ticket.id, {
+        attendance: 'completed',
+        queueStatus: 'done',
+        completedAt: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+      });
     }
-    // まだ完了してない人は「欠席」
+  };
+
+  // Format attendance display: 完了した人は出席、まだ完了してない人は欠席 (クリックで切り替え・取り消し可能)
+  const renderAttendanceBadge = (ticket: TicketRecord) => {
+    const completed = isTicketCompleted(ticket);
     return (
-      <span className="inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-300/80 shadow-2xs select-none">
-        欠席
-      </span>
+      <button
+        type="button"
+        onClick={() => handleToggleAttendance(ticket)}
+        className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold border shadow-2xs transition select-none cursor-pointer hover:opacity-85 ${
+          completed
+            ? 'bg-[#fed7d7] text-[#c53030] border-rose-300/80 hover:bg-[#feb2b2]'
+            : 'bg-slate-100 text-slate-600 border-slate-300/80 hover:bg-slate-200'
+        }`}
+        title="クリックで出席（完了）と欠席（待機中）を切り替えます。誤操作の取り消しにも使用できます。"
+      >
+        {completed ? '出席' : '欠席'}
+      </button>
     );
   };
 

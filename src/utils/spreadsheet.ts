@@ -89,6 +89,9 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
     attrIdx = 3;
   }
 
+  const usedNumbers = new Set<number>();
+  let nextFallbackNumber = 1;
+
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
@@ -97,20 +100,34 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
     if (cols.length < 2) continue;
 
     // Determine ticket number (1-digit / natural integer from leftmost column or row index)
-    let rawNum = i;
+    let parsedRawNum: number | null = null;
     if (numIdx >= 0 && cols[numIdx]) {
-      const parsedNum = parseInt(cols[numIdx].replace(/[#\s]/g, ''), 10);
-      if (!isNaN(parsedNum) && parsedNum > 0) {
-        rawNum = parsedNum;
+      const p = parseInt(cols[numIdx].replace(/[#\s]/g, ''), 10);
+      if (!isNaN(p) && p > 0) {
+        parsedRawNum = p;
       }
     } else if (cols[0] && /^\d+$/.test(cols[0].trim())) {
-      const parsedNum = parseInt(cols[0].trim(), 10);
-      if (!isNaN(parsedNum) && parsedNum > 0) {
-        rawNum = parsedNum;
+      const p = parseInt(cols[0].trim(), 10);
+      if (!isNaN(p) && p > 0) {
+        parsedRawNum = p;
       }
     }
 
-    const name = (nameIdx >= 0 && cols[nameIdx]) ? cols[nameIdx].trim() : `受診者${rawNum}`;
+    // Deduplicate ticket number to avoid collision & data overwrite
+    let finalNum: number;
+    if (parsedRawNum !== null && !usedNumbers.has(parsedRawNum)) {
+      finalNum = parsedRawNum;
+    } else {
+      // Find the next free natural integer
+      while (usedNumbers.has(nextFallbackNumber)) {
+        nextFallbackNumber++;
+      }
+      finalNum = nextFallbackNumber;
+      nextFallbackNumber++;
+    }
+    usedNumbers.add(finalNum);
+
+    const name = (nameIdx >= 0 && cols[nameIdx]) ? cols[nameIdx].trim() : `受診者${finalNum}`;
     const email = (emailIdx >= 0 && cols[emailIdx]) ? cols[emailIdx].trim() : '';
     
     // Time slot normalization (9:40 -> 09:30, 9:50 -> 09:30)
@@ -161,8 +178,8 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
     }
 
     tickets.push({
-      id: `TK-${rawNum}`,
-      ticketNumber: rawNum,
+      id: `TK-${finalNum}`,
+      ticketNumber: finalNum,
       name,
       email,
       timeSlot,

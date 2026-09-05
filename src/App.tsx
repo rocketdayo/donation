@@ -21,6 +21,7 @@ import {
   SyncSettings
 } from './firebase';
 import { fetchGoogleSheetCSV, sendUpdateToGoogleSheet } from './utils/spreadsheet';
+import { WifiOff } from 'lucide-react';
 
 // Components
 import { Header } from './components/Header';
@@ -56,6 +57,20 @@ export const App: React.FC = () => {
     const localUrl = localStorage.getItem('blood_donation_sheet_url') || 'https://rocketdayo.github.io/donation/';
     return { sheetUrl: localUrl, autoSync: true, intervalSec: 60 };
   });
+
+  // Network online/offline status
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Initialize and subscribe to Firestore
   useEffect(() => {
@@ -100,9 +115,16 @@ export const App: React.FC = () => {
     current: TicketRecord[]
   ): TicketRecord[] => {
     const currentMap = new Map<string, TicketRecord>(current.map(t => [t.id, t]));
+    const emailMap = new Map<string, TicketRecord>();
+    current.forEach(t => {
+      if (t.email && t.email.trim()) {
+        emailMap.set(t.email.trim().toLowerCase(), t);
+      }
+    });
 
     return fetched.map(item => {
-      const existing = currentMap.get(item.id);
+      // Find existing record by ID or by email to prevent numbering shift issues
+      const existing = currentMap.get(item.id) || (item.email ? emailMap.get(item.email.trim().toLowerCase()) : undefined);
       if (!existing) {
         return item;
       }
@@ -242,6 +264,21 @@ export const App: React.FC = () => {
 
       {/* Main Area */}
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5">
+        {/* Offline Safety Notice */}
+        {!isOnline && (
+          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl flex items-center justify-between text-xs animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <WifiOff className="w-4 h-4 text-amber-700 flex-shrink-0" />
+              <span>
+                現在オフラインで動作しています。操作内容は端末内に安全に保持され、通信復旧時に自動でクラウドへ同期されます。
+              </span>
+            </div>
+            <span className="font-bold text-[10px] px-2 py-0.5 rounded-full bg-amber-200 text-amber-800">
+              オフライン保護中
+            </span>
+          </div>
+        )}
+
         {isInitialLoading && tickets.length === 0 ? (
           <LoadingScreen onSkip={() => setIsInitialLoading(false)} />
         ) : !isAdminMode ? (
@@ -274,6 +311,7 @@ export const App: React.FC = () => {
               <AdminLotteryRoster
                 tickets={tickets}
                 onUpdateLotteryResult={(ticketId, result) => handleUpdateTicket(ticketId, { lotteryResult: result })}
+                onUpdateTicket={handleUpdateTicket}
                 onOpenSpreadsheet={() => setIsSpreadsheetOpen(true)}
               />
             )}

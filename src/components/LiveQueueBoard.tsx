@@ -16,7 +16,9 @@ import {
   Send, 
   Sparkles,
   ArrowRight,
-  RotateCcw
+  RotateCcw,
+  Undo2,
+  X
 } from 'lucide-react';
 import { sounds } from '../utils/audio';
 import { VoiceAnnouncer } from '../utils/speech';
@@ -117,8 +119,34 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
     handleCallTicket(nextTicket);
   };
 
-  // Change stage quick handler
+  // Track last action for immediate 1-click Undo
+  const [lastAction, setLastAction] = useState<{
+    ticket: TicketRecord;
+    previousState: Partial<TicketRecord>;
+    newStatusLabel: string;
+    timerId?: NodeJS.Timeout;
+  } | null>(null);
+
+  // Status labels for friendly user feedback
+  const statusLabels: Record<QueueStatus, string> = {
+    waiting: '待機中',
+    called: '呼出中',
+    interview: '問診中',
+    donating: '採血中',
+    resting: '休憩中',
+    done: '完了',
+    absent: '不在/保留'
+  };
+
+  // Change stage quick handler with Undo history
   const handleStageTransition = (ticket: TicketRecord, nextStatus: QueueStatus) => {
+    const previousState: Partial<TicketRecord> = {
+      queueStatus: ticket.queueStatus,
+      attendance: ticket.attendance,
+      completedAt: ticket.completedAt,
+      calledAt: ticket.calledAt
+    };
+
     const updates: Partial<TicketRecord> = { queueStatus: nextStatus };
     if (nextStatus === 'done') {
       updates.attendance = 'completed';
@@ -127,6 +155,33 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
       updates.attendance = 'absent';
     }
     onUpdateTicket(ticket.id, updates);
+
+    // Clear previous timer if exists
+    if (lastAction?.timerId) {
+      clearTimeout(lastAction.timerId);
+    }
+
+    // Set Undo bar for 8 seconds
+    const timerId = setTimeout(() => {
+      setLastAction(null);
+    }, 8000);
+
+    setLastAction({
+      ticket,
+      previousState,
+      newStatusLabel: statusLabels[nextStatus] || nextStatus,
+      timerId
+    });
+  };
+
+  // 1-Click Undo handler
+  const handleUndo = () => {
+    if (!lastAction) return;
+    if (lastAction.timerId) clearTimeout(lastAction.timerId);
+    onUpdateTicket(lastAction.ticket.id, lastAction.previousState);
+    setRecentNotification(`整理券 #${lastAction.ticket.ticketNumber} ${lastAction.ticket.name} 様のステータス変更を取り消しました`);
+    setTimeout(() => setRecentNotification(null), 4000);
+    setLastAction(null);
   };
 
   return (
@@ -460,13 +515,23 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
             {doneList.map((ticket) => (
               <div 
                 key={ticket.id}
-                className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-600 flex items-center justify-between"
+                className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-600 flex items-center justify-between gap-2"
               >
-                <div className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-slate-400" />
-                  <span className="font-medium">#{ticket.ticketNumber} {ticket.name}</span>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                  <span className="font-medium truncate">#{ticket.ticketNumber} {ticket.name}</span>
                 </div>
-                <span className="text-[10px] text-slate-400">{ticket.completedAt || '完了'}</span>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="text-[10px] text-slate-400">{ticket.completedAt || '完了'}</span>
+                  <button
+                    onClick={() => handleStageTransition(ticket, 'waiting')}
+                    className="px-2 py-1 rounded-md text-[10px] text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-300 transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                    title="誤って完了にした場合、待機中に戻せます"
+                  >
+                    <RotateCcw className="w-2.5 h-2.5" />
+                    <span>待機中に戻す</span>
+                  </button>
+                </div>
               </div>
             ))}
 
@@ -476,6 +541,35 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Floating Undo Bar for Accidental Status Changes */}
+      {lastAction && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl border border-slate-700/80 transition-all duration-300 animate-in fade-in slide-in-from-bottom-3">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-xs font-medium">
+              #{lastAction.ticket.ticketNumber} {lastAction.ticket.name} 様を「{lastAction.newStatusLabel}」に変更しました
+            </span>
+          </div>
+
+          <button
+            onClick={handleUndo}
+            className="px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer transition shadow-xs"
+            title="直前の変更を取り消して元の状態に戻します"
+          >
+            <Undo2 className="w-3.5 h-3.5" />
+            <span>元に戻す</span>
+          </button>
+
+          <button
+            onClick={() => setLastAction(null)}
+            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition cursor-pointer"
+            title="閉じる"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };

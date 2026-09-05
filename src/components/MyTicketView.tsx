@@ -30,6 +30,7 @@ import { sounds } from '../utils/audio';
 import { auth } from '../firebase';
 import { DonationGuidelines } from './DonationGuidelines';
 import { LoadingScreen } from './LoadingScreen';
+import { findMatchingTicket, normalizeQueryString } from '../utils/studentIdMatcher';
 
 interface MyTicketViewProps {
   tickets: TicketRecord[];
@@ -122,11 +123,10 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
     }
   };
 
-  // Find ticket matching the verified user email
+  // Find ticket matching the verified user email or student ID
   const currentTicket = useMemo(() => {
     if (!userEmail) return null;
-    const target = userEmail.trim().toLowerCase();
-    return tickets.find(t => t.email.trim().toLowerCase() === target) || null;
+    return findMatchingTicket(userEmail, tickets).ticket;
   }, [tickets, userEmail]);
 
   // Track last alerted ticket call event to avoid infinite looping while alerting on every real call/re-call
@@ -167,28 +167,30 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
     }
   }, [currentTicket?.id, currentTicket?.queueStatus, currentTicket?.calledTimestamp]);
 
-  // Handle email lookup / verification submission
+  // Handle email lookup / verification submission with intelligent Student ID support
   const handleVerifyEmail = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setVerifyError(null);
-    const target = inputEmail.trim().toLowerCase();
+    const target = normalizeQueryString(inputEmail);
     if (!target) {
-      setVerifyError('メールアドレスを入力してください');
+      setVerifyError('メールアドレスまたは学籍番号を入力してください');
       return;
     }
 
     setIsVerifying(true);
     setTimeout(() => {
-      const match = tickets.find(t => t.email.trim().toLowerCase() === target);
-      if (match) {
-        setUserEmail(target);
-        localStorage.setItem(STORAGE_EMAIL_KEY, target);
+      const match = findMatchingTicket(target, tickets);
+      if (match.ticket) {
+        // Save the canonical email of matched ticket
+        const canonicalEmail = match.ticket.email.trim().toLowerCase();
+        setUserEmail(canonicalEmail);
+        localStorage.setItem(STORAGE_EMAIL_KEY, canonicalEmail);
         setVerifyError(null);
       } else {
-        setVerifyError(`メールアドレス「${inputEmail}」に一致する献血予約・整理券が見つかりませんでした。入力内容をご確認ください。`);
+        setVerifyError(`「${inputEmail}」に一致する献血予約・整理券が見つかりませんでした。学籍番号（例: s25583）またはご登録のメールアドレスをご確認ください。`);
       }
       setIsVerifying(false);
-    }, 300);
+    }, 250);
   };
 
   // Switch or clear email verification
@@ -310,10 +312,10 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
                 <Mail className="w-6 h-6 text-slate-700" />
               </div>
               <h2 className="text-lg sm:text-xl font-bold text-slate-900">
-                整理券の照会・ログイン
+                整理券の照会・表示
               </h2>
               <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
-                献血の予約時に登録したメールアドレスを入力して、ご自身の整理券を表示してください。
+                学籍番号（例: s25583）、または予約時のメールアドレスを入力してください。
               </p>
             </div>
 
@@ -321,19 +323,21 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
             <form onSubmit={handleVerifyEmail} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  メールアドレス
+                  学籍番号 または メールアドレス
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
-                    type="email"
+                    type="text"
                     required
+                    autoCapitalize="none"
+                    autoCorrect="off"
                     value={inputEmail}
                     onChange={(e) => {
                       setInputEmail(e.target.value);
                       if (verifyError) setVerifyError(null);
                     }}
-                    placeholder="メールアドレスを入力"
+                    placeholder="例: s25583 またはメールアドレス"
                     className="w-full pl-9 pr-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition"
                   />
                 </div>

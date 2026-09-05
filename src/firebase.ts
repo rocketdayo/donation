@@ -132,13 +132,48 @@ export async function seedInitialTickets(): Promise<void> {
   }
 }
 
-// Update single ticket
+// Offline retry queue for single ticket updates
+const pendingUpdates = new Map<string, Partial<TicketRecord>>();
+let isFlushingQueue = false;
+
+async function flushPendingUpdates() {
+  if (isFlushingQueue || pendingUpdates.size === 0) return;
+  isFlushingQueue = true;
+  try {
+    const entries = Array.from(pendingUpdates.entries());
+    for (const [id, updates] of entries) {
+      try {
+        const ref = doc(db, 'tickets', id);
+        await updateDoc(ref, updates);
+        pendingUpdates.delete(id);
+      } catch (e) {
+        console.warn(`Retry update failed for ticket ${id}, will retry later:`, e);
+      }
+    }
+  } finally {
+    isFlushingQueue = false;
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    console.log('Online restored. Flushing pending ticket updates...');
+    flushPendingUpdates();
+  });
+}
+
+// Update single ticket (with offline safe queuing)
 export async function updateFirestoreTicket(id: string, updates: Partial<TicketRecord>): Promise<void> {
   const ref = doc(db, 'tickets', id);
   try {
     await updateDoc(ref, updates);
+    // If successfully written, clear from retry queue
+    pendingUpdates.delete(id);
   } catch (err) {
-    handleFirestoreError(err, OperationType.UPDATE, `tickets/${id}`);
+    console.warn(`Direct update failed for ticket ${id} (offline/transient), queuing for retry:`, err);
+    // Queue update locally so it syncs once network or firestore reconnects
+    const current = pendingUpdates.get(id) || {};
+    pendingUpdates.set(id, { ...current, ...updates });
   }
 }
 
@@ -187,25 +222,39 @@ export async function saveSyncSettings(settings: SyncSettings): Promise<void> {
 }
 
 // Replace all tickets (e.g. from CSV / Spreadsheet import or Reset)
+// Uses chunked batches of 400 operations to respect Firestore's 500 max limit safely
 export async function syncAllTicketsToFirestore(tickets: TicketRecord[]): Promise<void> {
   try {
     const existingSnap = await getDocs(collection(db, 'tickets'));
-    const batch = writeBatch(db);
-    
+    const operations: Array<{ type: 'delete' | 'set'; ref: any; data?: TicketRecord }> = [];
+
     // Delete docs not in new tickets
     const newIds = new Set(tickets.map(t => t.id));
     existingSnap.forEach(d => {
       if (!newIds.has(d.id)) {
-        batch.delete(d.ref);
+        operations.push({ type: 'delete', ref: d.ref });
       }
     });
 
     // Set all new tickets
     for (const t of tickets) {
-      batch.set(doc(db, 'tickets', t.id), t);
+      operations.push({ type: 'set', ref: doc(db, 'tickets', t.id), data: t });
     }
 
-    await batch.commit();
+    // Commit operations in chunks of 400
+    const CHUNK_SIZE = 400;
+    for (let i = 0; i < operations.length; i += CHUNK_SIZE) {
+      const chunk = operations.slice(i, i + CHUNK_SIZE);
+      const batch = writeBatch(db);
+      for (const op of chunk) {
+        if (op.type === 'delete') {
+          batch.delete(op.ref);
+        } else if (op.data) {
+          batch.set(op.ref, op.data);
+        }
+      }
+      await batch.commit();
+    }
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, 'tickets');
   }
