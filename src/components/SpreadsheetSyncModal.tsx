@@ -202,13 +202,16 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
         </div>
 
         {/* Operation Policy Notice */}
-        <div className="mt-4 p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 space-y-1">
+        <div className="mt-4 p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 space-y-1.5">
           <div className="flex items-center gap-1.5 font-bold text-slate-800">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span>安心・高速な単方向データ連携</span>
+            <span>安心・永続的なクラウド保存（Firebase自動同期）</span>
           </div>
           <p className="leading-relaxed text-[11px] text-slate-600">
-            スプレッドシートは「予約者名簿の最初の読み込み」のみに使用します。読み込み後の呼出・進行状況（問診検査中・採血中等）やくじ引き結果はアプリ内部とクラウドで即座に同期され、スプレッドシート側への自動送信は行われません。受付終了後や記録が必要な時は、STEP 2からワンクリックで結果をコピーして貼り付けられます。
+            スプレッドシートは「予約者名簿の最初の読み込み」のみに使用します。<strong>一度読み込まれた名簿データや呼出・進行状況・くじ引き結果はFirebaseクラウドにリアルタイム保存されるため、ブラウザを閉じたり翌朝以降にアクセスしても再取得の必要なくデータがそのまま維持されます。</strong>
+          </p>
+          <p className="leading-relaxed text-[11px] text-slate-500">
+            ※イベント終了後やスプレッドシートに最新状況を戻したいときは、下の【STEP 2】からワンクリックで結果をコピーして貼り付けられます。
           </p>
         </div>
 

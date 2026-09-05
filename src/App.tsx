@@ -226,6 +226,8 @@ export const App: React.FC = () => {
         waitingCount={waitingCount}
         callingCount={callingCount}
         completedCount={completedCount}
+        isFirebaseConnected={isFirebaseConnected}
+        ticketCount={tickets.length}
       />
 
       {/* Main Area */}

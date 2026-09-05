@@ -31,6 +31,8 @@ interface HeaderProps {
   waitingCount: number;
   callingCount: number;
   completedCount: number;
+  isFirebaseConnected?: boolean;
+  ticketCount?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -47,6 +49,8 @@ export const Header: React.FC<HeaderProps> = ({
   waitingCount,
   callingCount,
   completedCount,
+  isFirebaseConnected,
+  ticketCount = 0,
 }) => {
   const [logoError, setLogoError] = useState(false);
 
@@ -76,14 +80,29 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             )}
             <div className="min-w-0">
-              <h1 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight flex items-center gap-2 truncate">
-                献血整理券＆受付管理システム
-                {isAdminMode && (
-                  <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                    管理者画面
+              <div className="flex items-center gap-2">
+                <h1 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight flex items-center gap-2 truncate">
+                  献血整理券＆受付管理システム
+                  {isAdminMode && (
+                    <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                      管理者画面
+                    </span>
+                  )}
+                </h1>
+                {isFirebaseConnected !== undefined && (
+                  <span 
+                    className={`hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${
+                      isFirebaseConnected 
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                        : 'bg-amber-50 text-amber-700 border-amber-200'
+                    }`}
+                    title={isFirebaseConnected ? `Firebaseクラウド同期中: ${ticketCount}名保存済み` : 'ローカル保存中（接続待機）'}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${isFirebaseConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`}></span>
+                    {isFirebaseConnected ? `クラウド同期中 (${ticketCount}名)` : 'ローカル保存'}
                   </span>
                 )}
-              </h1>
+              </div>
             </div>
           </div>
 
