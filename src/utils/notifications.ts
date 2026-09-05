@@ -106,7 +106,7 @@ export class NotificationManager {
    */
   public static async sendCallNotification(ticket: TicketRecord): Promise<NotificationLog> {
     const title = `【献血呼出】整理券番号 #${ticket.ticketNumber} の番です！`;
-    const body = `${ticket.name}様、献血受付カウンターへお越しください。`;
+    const body = `${ticket.name}様、食堂前の献血バスへお越しください。`;
     const tag = `call-${ticket.id}-${ticket.calledTimestamp || Date.now()}`;
 
     // 1. Play Calling Chime

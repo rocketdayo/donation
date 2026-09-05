@@ -81,7 +81,7 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
       ticket.email,
       ticket.name,
       `【献血呼出】整理券番号 #${ticket.ticketNumber} の番です`,
-      `${ticket.name}様、献血受付カウンターへお越しください。`
+      `${ticket.name}様、食堂前の献血バスへお越しください。`
     );
 
     setRecentNotification(`整理券 #${ticket.ticketNumber} ${ticket.name} 様へ呼出通知を送信しました（${nextCallCount}回目）`);
@@ -104,7 +104,7 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
 
     sounds.unlock();
     sounds.playCallingChime();
-    VoiceAnnouncer.speak(`現在お呼出中の方、献血受付カウンターへお越しください。`);
+    VoiceAnnouncer.speak(`現在お呼出中の方、食堂前の献血バスへお越しください。`);
 
     setRecentNotification(`お呼出中の受診者全員（${callingList.length}名）へ一括呼出通知を送信しました`);
     setTimeout(() => setRecentNotification(null), 5000);
@@ -274,7 +274,7 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
               </button>
             )}
             <span className="text-[11px] font-medium text-slate-500">
-              受付カウンターにて対応
+              食堂前の献血バスにて対応
             </span>
           </div>
         </div>

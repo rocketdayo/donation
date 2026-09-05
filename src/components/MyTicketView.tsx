@@ -23,7 +23,8 @@ import {
   Info,
   LogOut,
   ArrowRight,
-  Check
+  Check,
+  MapPin
 } from 'lucide-react';
 import { NotificationManager } from '../utils/notifications';
 import { sounds } from '../utils/audio';
@@ -187,7 +188,7 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
         localStorage.setItem(STORAGE_EMAIL_KEY, canonicalEmail);
         setVerifyError(null);
       } else {
-        setVerifyError(`「${inputEmail}」に一致する献血予約・整理券が見つかりませんでした。学籍番号（例: s25583）またはご登録のメールアドレスをご確認ください。`);
+        setVerifyError(`「${inputEmail}」に一致する献血予約・整理券が見つかりませんでした。sid、またはご登録のメールアドレスをご確認ください。`);
       }
       setIsVerifying(false);
     }, 250);
@@ -216,7 +217,7 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
       case 'called':
         return {
           title: 'お呼出中です',
-          description: '献血受付・問診カウンターへお進みください',
+          description: '食堂前の献血バスへお越しください',
           badge: '呼出中',
           bgClass: 'bg-amber-500 text-slate-950',
           borderClass: 'border-amber-400',
@@ -315,7 +316,7 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
                 整理券の照会・表示
               </h2>
               <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
-                学籍番号（例: s25583）、または予約時のメールアドレスを入力してください。
+                sid、または予約時のメールアドレスを入力してください。
               </p>
             </div>
 
@@ -323,7 +324,7 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
             <form onSubmit={handleVerifyEmail} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  学籍番号 または メールアドレス
+                  sid または メールアドレス
                 </label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -337,7 +338,7 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
                       setInputEmail(e.target.value);
                       if (verifyError) setVerifyError(null);
                     }}
-                    placeholder="例: s25583 またはメールアドレス"
+                    placeholder="sidを入力 または メールアドレスを入力"
                     className="w-full pl-9 pr-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition"
                   />
                 </div>
@@ -537,6 +538,14 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
                     {statusInfo.description}
                   </p>
 
+                  {/* Destination reminder when called */}
+                  {currentTicket.queueStatus === 'called' && (
+                    <div className="p-2.5 bg-amber-100/90 border border-amber-300 rounded-xl flex items-center gap-2 text-amber-950 font-bold text-xs animate-pulse">
+                      <MapPin className="w-4 h-4 text-amber-700 flex-shrink-0" />
+                      <span>呼出場所：食堂前の献血バス</span>
+                    </div>
+                  )}
+
                   {/* Live Call Reference */}
                   <div className="mt-3 pt-2.5 border-t border-slate-200/60 flex items-center justify-between text-xs">
                     <span className="text-slate-500">現在のお呼出番号:</span>
@@ -721,7 +730,7 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
               献血ご協力にあたってのお願い
             </div>
             <p className="text-[11px] text-slate-600 leading-relaxed">
-              問診前には十分な水分補給（コップ1〜2杯）をお願いいたします。受付にてお呼び出しがありましたら、食堂前の献血受付カウンターまでお越しください。
+              問診前には十分な水分補給（コップ1〜2杯）をお願いいたします。お呼び出しがありましたら、食堂前の献血バスまでお越しください。
             </p>
           </div>
         </>

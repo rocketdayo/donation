@@ -34,7 +34,7 @@ export class VoiceAnnouncer {
   }
 
   public static announceCall(ticketNumber: number, name: string) {
-    const text = `整理券番号、${ticketNumber}番。${name}様。献血受付へお越しください。`;
+    const text = `整理券番号、${ticketNumber}番。${name}様。食堂前の献血バスへお越しください。`;
     this.speak(text);
   }
 }

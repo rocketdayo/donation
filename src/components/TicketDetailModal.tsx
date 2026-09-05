@@ -134,7 +134,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
             献血前のご案内
           </div>
           <p className="text-[11px] text-slate-500 leading-relaxed">
-            問診前には十分な水分補給（コップ1〜2杯）をお願いいたします。
+            問診前には十分な水分補給（コップ1〜2杯）をお願いいたします。お呼び出しがありましたら、食堂前の献血バスまでお越しください。
           </p>
         </div>
 
