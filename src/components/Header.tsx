@@ -96,10 +96,10 @@ export const Header: React.FC<HeaderProps> = ({
                         ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
                         : 'bg-amber-50 text-amber-700 border-amber-200'
                     }`}
-                    title={isFirebaseConnected ? `Firebaseクラウド同期中: ${ticketCount}名保存済み` : 'ローカル保存中（接続待機）'}
+                    title={isFirebaseConnected ? 'Firebaseクラウド同期中' : 'ローカル保存中（接続待機）'}
                   >
                     <span className={`w-1.5 h-1.5 rounded-full ${isFirebaseConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`}></span>
-                    {isFirebaseConnected ? `クラウド同期中 (${ticketCount}名)` : 'ローカル保存'}
+                    {isFirebaseConnected ? 'クラウド同期中' : 'ローカル保存'}
                   </span>
                 )}
               </div>

@@ -4,8 +4,6 @@
 import { TicketRecord } from '../types';
 
 export const TIME_SLOTS = [
-  '08:30',
-  '09:00',
   '09:30',
   '10:00',
   '10:30',

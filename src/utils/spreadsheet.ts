@@ -10,7 +10,7 @@ export const DEFAULT_SHEET_CSV_TEMPLATE = `番号,時間,メアド,名前,属性
  * e.g., 9:40 -> 09:30, 9:50 -> 09:30, 9:10 -> 09:00, 9:20 -> 09:00
  */
 export function normalizeTimeSlot(rawSlot: string): { slot: string; originalNote?: string } {
-  if (!rawSlot) return { slot: '09:00' };
+  if (!rawSlot) return { slot: '09:30' };
   const clean = rawSlot.trim();
 
   // Match HH:mm or H:mm
@@ -114,7 +114,7 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
     const email = (emailIdx >= 0 && cols[emailIdx]) ? cols[emailIdx].trim() : '';
     
     // Time slot normalization (9:40 -> 09:30, 9:50 -> 09:30)
-    const rawSlot = (slotIdx >= 0 && cols[slotIdx]) ? cols[slotIdx].trim() : '09:00';
+    const rawSlot = (slotIdx >= 0 && cols[slotIdx]) ? cols[slotIdx].trim() : '09:30';
     const { slot: timeSlot, originalNote } = normalizeTimeSlot(rawSlot);
 
     const attribute = (attrIdx >= 0 && cols[attrIdx]) ? cols[attrIdx].trim() : undefined;
