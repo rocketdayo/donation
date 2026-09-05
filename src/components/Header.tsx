@@ -13,7 +13,6 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { sounds } from '../utils/audio';
-import { VoiceAnnouncer } from '../utils/speech';
 import { AdminTabType } from '../types';
 import donationLogo from '../assets/images/donation_app_icon_1788338521568.jpg';
 
@@ -58,7 +57,6 @@ export const Header: React.FC<HeaderProps> = ({
     const next = !soundEnabled;
     setSoundEnabled(next);
     sounds.setEnabled(next);
-    VoiceAnnouncer.setEnabled(next);
   };
 
   return (
@@ -141,7 +139,7 @@ export const Header: React.FC<HeaderProps> = ({
                       ? 'bg-slate-50 text-slate-800 border-slate-200 hover:bg-slate-100'
                       : 'bg-slate-100 text-slate-400 border-slate-200'
                   }`}
-                  title={soundEnabled ? '音声案内: ON' : '音声案内: OFF'}
+                  title={soundEnabled ? '呼出チャイム音: ON' : '呼出チャイム音: OFF'}
                 >
                   {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
                 </button>

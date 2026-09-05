@@ -3,7 +3,6 @@
  */
 import { NotificationLog, TicketRecord } from '../types';
 import { sounds } from './audio';
-import { VoiceAnnouncer } from './speech';
 
 export class NotificationManager {
   private static STORAGE_KEY = 'blood_donation_notifications';
@@ -23,8 +22,9 @@ export class NotificationManager {
       const permission = await Notification.requestPermission();
       if (permission === 'granted') {
         await this.sendLocalNotification(
-          '【献血整理券】通知が有効化されました',
-          'お呼び出しの際にスマホの通知欄へお知らせが届きます。'
+          '献血整理券の通知設定が完了しました',
+          'お呼出の際にこちらの端末へお知らせします。',
+          'donation-setup-notification'
         );
       }
       return permission;
@@ -43,16 +43,18 @@ export class NotificationManager {
 
   /**
    * Send local browser / PWA notification
+   * Configured to follow Google Chrome / Android Safe Notification guidelines
+   * (Standard PNG badge/icon, gentle vibration, no requireInteraction flag)
    */
   public static async sendLocalNotification(title: string, body: string, tag?: string): Promise<void> {
     if (typeof window === 'undefined' || !('Notification' in window)) {
       return;
     }
 
-    // Trigger vibration on mobile if supported
+    // Gentle vibration on mobile if supported
     if ('vibrate' in navigator) {
       try {
-        navigator.vibrate([300, 150, 300, 150, 500]);
+        navigator.vibrate([200, 100, 200]);
       } catch {
         // Ignore vibration errors
       }
@@ -63,15 +65,18 @@ export class NotificationManager {
     }
 
     try {
-      const iconUrl = '/donation_icon.jpg';
+      const iconUrl = '/pwa-192x192.png';
+      const badgeUrl = '/favicon.png';
+      const notifTag = tag || 'donation-ticket-call';
+
       const notifOptions: NotificationOptions = {
         body,
         icon: iconUrl,
-        badge: iconUrl,
-        tag: tag || 'blood-notif-' + Date.now(),
+        badge: badgeUrl,
+        tag: notifTag,
         renotify: true,
-        requireInteraction: true,
-        vibrate: [400, 200, 400, 200, 800],
+        // requireInteraction is intentionally omitted as it triggers Chrome/Android spam/suspicious filters
+        vibrate: [200, 100, 200],
         data: {
           url: typeof window !== 'undefined' ? window.location.href : '/',
           timestamp: Date.now()
@@ -93,8 +98,8 @@ export class NotificationManager {
       new Notification(title, {
         body,
         icon: iconUrl,
-        tag: notifOptions.tag,
-        requireInteraction: true
+        badge: badgeUrl,
+        tag: notifTag
       });
     } catch (err) {
       console.warn('Local notification error:', err);
@@ -102,12 +107,12 @@ export class NotificationManager {
   }
 
   /**
-   * Broadcast / Trigger full calling notification (Audio Chime + Voice Announcement + Vibration + Phone Notification Bar)
+   * Trigger calling notification (Audio Chime + Vibration + Clean System Notification Bar)
    */
   public static async sendCallNotification(ticket: TicketRecord): Promise<NotificationLog> {
-    const title = `【献血呼出】整理券番号 #${ticket.ticketNumber} の番です！`;
-    const body = `${ticket.name}様、食堂前の献血バスへお越しください。`;
-    const tag = `call-${ticket.id}-${ticket.calledTimestamp || Date.now()}`;
+    const title = `献血バスへのお呼出（整理券 ${ticket.ticketNumber}番）`;
+    const body = `${ticket.name} 様、受付の順番になりました。食堂前の献血バスへお越しください。`;
+    const tag = `call-${ticket.id}`;
 
     // 1. Play Calling Chime
     try {
@@ -116,23 +121,16 @@ export class NotificationManager {
       console.warn('Calling chime error:', e);
     }
 
-    // 2. Voice Announcement
-    try {
-      VoiceAnnouncer.announceCall(ticket.ticketNumber, ticket.name);
-    } catch (e) {
-      console.warn('Voice announcement error:', e);
-    }
-
-    // 3. Mobile Device Vibration
+    // 2. Mobile Device Vibration (Gentle standard pulse)
     if (typeof window !== 'undefined' && 'vibrate' in navigator) {
       try {
-        navigator.vibrate([400, 200, 400, 200, 800, 200, 800]);
+        navigator.vibrate([200, 100, 200]);
       } catch {
         // Ignore
       }
     }
 
-    // 4. Send System Notification (Notification Bar / Lock Screen)
+    // 3. Send System Notification
     await this.sendLocalNotification(title, body, tag);
 
     const log: NotificationLog = {
@@ -168,7 +166,7 @@ export class NotificationManager {
       status: 'simulated'
     };
 
-    await this.sendLocalNotification(title, body, `push-${ticketId}-${Date.now()}`);
+    await this.sendLocalNotification(title, body, `call-${ticketId}`);
     if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
       log.status = 'delivered';
     }

@@ -183,8 +183,9 @@ export const App: React.FC = () => {
     if (perm === 'granted') {
       sounds.playCallingChime();
       await NotificationManager.sendLocalNotification(
-        '【献血整理券】通知が有効化されました',
-        'お呼び出し時に端末の通知欄へお知らせが届きます。'
+        '献血整理券の通知設定が完了しました',
+        'お呼出時にこちらの端末へお知らせが届きます。',
+        'donation-setup-notification'
       );
     }
   };

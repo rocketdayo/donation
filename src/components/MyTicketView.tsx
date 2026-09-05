@@ -632,6 +632,17 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
               </p>
             )}
 
+            {/* Android Suspicious Notification Filter notice */}
+            <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3 text-[11px] text-slate-600 space-y-1">
+              <div className="font-bold text-slate-700 flex items-center gap-1.5">
+                <Info className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                <span>Android等で「不審な疑いのある通知」と表示された場合</span>
+              </div>
+              <p className="text-[10px] text-slate-500 leading-relaxed pl-5">
+                ブラウザ（Google Chrome）の自動保護フィルターによる表示です。通知を展開して<strong>「通知を表示」→「常に許可」</strong>を選択していただくことで、次回以降も安全かつ確実に呼出通知を受信できます。
+              </p>
+            </div>
+
             {/* PWA / Add to Home Screen Section */}
             <div className="pt-3 border-t border-slate-100 space-y-3">
               <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-3">

@@ -21,7 +21,6 @@ import {
   X
 } from 'lucide-react';
 import { sounds } from '../utils/audio';
-import { VoiceAnnouncer } from '../utils/speech';
 import { NotificationManager } from '../utils/notifications';
 
 interface LiveQueueBoardProps {
@@ -74,14 +73,13 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
 
     sounds.unlock();
     sounds.playCallingChime();
-    VoiceAnnouncer.announceCall(ticket.ticketNumber, ticket.name);
 
     NotificationManager.sendPushNotification(
       ticket.id,
       ticket.email,
       ticket.name,
-      `【献血呼出】整理券番号 #${ticket.ticketNumber} の番です`,
-      `${ticket.name}様、食堂前の献血バスへお越しください。`
+      `献血バスへのお呼出（整理券 ${ticket.ticketNumber}番）`,
+      `${ticket.name} 様、受付の順番になりました。食堂前の献血バスへお越しください。`
     );
 
     setRecentNotification(`整理券 #${ticket.ticketNumber} ${ticket.name} 様へ呼出通知を送信しました（${nextCallCount}回目）`);
@@ -104,7 +102,6 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
 
     sounds.unlock();
     sounds.playCallingChime();
-    VoiceAnnouncer.speak(`現在お呼出中の方、食堂前の献血バスへお越しください。`);
 
     setRecentNotification(`お呼出中の受診者全員（${callingList.length}名）へ一括呼出通知を送信しました`);
     setTimeout(() => setRecentNotification(null), 5000);
@@ -327,7 +324,7 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
                   <button
                     onClick={() => handleCallTicket(ticket)}
                     className="px-2.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs transition flex items-center gap-1 shadow-xs active:scale-95"
-                    title="スマホへ呼出通知・チャイム・音声を送信"
+                    title="スマホへ呼出通知・チャイムを送信"
                   >
                     <Megaphone className="w-3.5 h-3.5" />
                     <span>通知再送</span>
