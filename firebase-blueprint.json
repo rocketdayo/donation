@@ -46,7 +46,7 @@
         },
         "queueStatus": {
           "type": "string",
-          "enum": ["waiting", "called", "interview", "donating", "resting", "done", "absent"],
+          "enum": ["waiting", "called", "on_hold", "interview", "donating", "resting", "done", "absent"],
           "description": "Current queue status"
         },
         "bloodType": {

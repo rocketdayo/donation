@@ -5,6 +5,7 @@
 export type QueueStatus = 
   | 'waiting'      // 待機中
   | 'called'       // お呼出中 (受付・問診へ)
+  | 'on_hold'      // 保留・一時不在（スキップ）
   | 'interview'    // 問診・事前検査中
   | 'donating'     // 採血中
   | 'resting'      // 休憩中
@@ -12,6 +13,17 @@ export type QueueStatus =
   | 'absent';      // 不在・キャンセル
 
 export type AttendanceStatus = 'unattended' | 'present' | 'absent' | 'completed';
+
+export type ParentalConsentStatus = 'not_required' | 'submitted' | 'unconfirmed';
+
+export interface SafetyChecklist {
+  mealTaken?: boolean;         // 直近の食事摂取（空腹防止）
+  sleepAdequate?: boolean;     // 睡眠時間（4時間以上）
+  weightQualified?: boolean;   // 体重基準（男子45/50kg以上、女子40kg以上）
+  medicationCleared?: boolean; // 服薬・歯科治療等の問題なし
+  waterHydrated?: boolean;     // 水分補給（コップ1〜2杯）
+  confirmedAt?: string;        // セルフチェック確認日時
+}
 
 export type LotteryResultType = 
   | ''
@@ -47,6 +59,8 @@ export interface TicketRecord {
   callCount?: number;      // 呼出回数
   completedAt?: string;    // 完了時刻
   notes?: string;          // 備考
+  parentalConsentStatus?: ParentalConsentStatus; // 保護者同意書 (生徒・未成年用: submitted / unconfirmed / not_required)
+  safetyChecklist?: SafetyChecklist; // 事前安全セルフチェック
 }
 
 export interface TimeSlotStat {

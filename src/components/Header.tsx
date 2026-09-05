@@ -32,6 +32,10 @@ interface HeaderProps {
   completedCount: number;
   isFirebaseConnected?: boolean;
   ticketCount?: number;
+  isOnline?: boolean;
+  lastSyncedAt?: Date | null;
+  isResyncing?: boolean;
+  onManualResync?: () => Promise<void>;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -50,6 +54,10 @@ export const Header: React.FC<HeaderProps> = ({
   completedCount,
   isFirebaseConnected,
   ticketCount = 0,
+  isOnline = true,
+  lastSyncedAt,
+  isResyncing = false,
+  onManualResync,
 }) => {
   const [logoError, setLogoError] = useState(false);
 
@@ -87,19 +95,39 @@ export const Header: React.FC<HeaderProps> = ({
                     </span>
                   )}
                 </h1>
-                {isFirebaseConnected !== undefined && (
-                  <span 
-                    className={`hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${
-                      isFirebaseConnected 
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                        : 'bg-amber-50 text-amber-700 border-amber-200'
-                    }`}
-                    title={isFirebaseConnected ? 'Firebaseクラウド同期中' : 'ローカル保存中（接続待機）'}
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full ${isFirebaseConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`}></span>
-                    {isFirebaseConnected ? 'クラウド同期中' : 'ローカル保存'}
-                  </span>
-                )}
+                
+                {/* Network connection & sync badge */}
+                <div className="flex items-center gap-1.5">
+                  {!isOnline ? (
+                    <span 
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300"
+                      title="電波不通・オフライン（ローカルキャッシュ利用中）"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                      <span>オフライン</span>
+                    </span>
+                  ) : (
+                    <span 
+                      className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border bg-emerald-50 text-emerald-700 border-emerald-200"
+                      title={lastSyncedAt ? `最終同期: ${lastSyncedAt.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}` : 'リアルタイム同期中'}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      <span>リアルタイム同期中</span>
+                    </span>
+                  )}
+
+                  {onManualResync && (
+                    <button
+                      type="button"
+                      onClick={onManualResync}
+                      disabled={isResyncing}
+                      className="p-1 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition disabled:opacity-40 cursor-pointer"
+                      title="最新データを再同期"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${isResyncing ? 'animate-spin text-rose-700' : ''}`} />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>

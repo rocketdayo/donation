@@ -21,7 +21,8 @@ import {
   SyncSettings
 } from './firebase';
 import { fetchGoogleSheetCSV, sendUpdateToGoogleSheet } from './utils/spreadsheet';
-import { WifiOff } from 'lucide-react';
+import { WifiOff, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { useNetworkSync } from './hooks/useNetworkSync';
 
 // Components
 import { Header } from './components/Header';
@@ -58,19 +59,10 @@ export const App: React.FC = () => {
     return { sheetUrl: localUrl, autoSync: true, intervalSec: 60 };
   });
 
-  // Network online/offline status
-  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
-
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
+  // Real-time network sync hook with offline resilience & manual resync
+  const networkSync = useNetworkSync((updatedTickets) => {
+    setTickets(updatedTickets);
+  });
 
   // Initialize and subscribe to Firestore
   useEffect(() => {
@@ -89,6 +81,7 @@ export const App: React.FC = () => {
         saveTicketsToStorage(firestoreTickets);
         setIsFirebaseConnected(true);
         setIsInitialLoading(false);
+        networkSync.recordSyncTimestamp();
       },
       (err) => {
         console.warn('Firestore subscription offline, using cached tickets:', err);
@@ -107,7 +100,7 @@ export const App: React.FC = () => {
       unsubscribe();
       unsubSettings();
     };
-  }, []);
+  }, [networkSync]);
 
   // Helper: Merge spreadsheet data with live state, restoring any explicit statuses from spreadsheet
   const mergeSheetTicketsWithExisting = (
@@ -261,22 +254,50 @@ export const App: React.FC = () => {
         completedCount={completedCount}
         isFirebaseConnected={isFirebaseConnected}
         ticketCount={tickets.length}
+        isOnline={networkSync.isOnline}
+        lastSyncedAt={networkSync.lastSyncedAt}
+        isResyncing={networkSync.isResyncing}
+        onManualResync={networkSync.manualResync}
       />
 
       {/* Main Area */}
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5">
-        {/* Offline Safety Notice */}
-        {!isOnline && (
-          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl flex items-center justify-between text-xs animate-in fade-in">
+        {/* Network Sync Message Toast / Alert */}
+        {networkSync.syncMessage && (
+          <div className="mb-4 p-3 bg-slate-900 text-white rounded-2xl flex items-center justify-between text-xs shadow-lg animate-in fade-in slide-in-from-top-1">
             <div className="flex items-center gap-2">
-              <WifiOff className="w-4 h-4 text-amber-700 flex-shrink-0" />
-              <span>
-                現在オフラインで動作しています。操作内容は端末内に安全に保持され、通信復旧時に自動でクラウドへ同期されます。
-              </span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+              <span>{networkSync.syncMessage}</span>
             </div>
-            <span className="font-bold text-[10px] px-2 py-0.5 rounded-full bg-amber-200 text-amber-800">
-              オフライン保護中
-            </span>
+            {networkSync.lastSyncedAt && (
+              <span className="text-[10px] text-slate-400">
+                最終更新: {networkSync.lastSyncedAt.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Offline Safety Notice */}
+        {!networkSync.isOnline && (
+          <div className="mb-4 p-3.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl flex items-center justify-between text-xs animate-in fade-in">
+            <div className="flex items-center gap-2.5">
+              <WifiOff className="w-4 h-4 text-amber-700 flex-shrink-0" />
+              <div>
+                <div className="font-bold">電波不良・オフラインで動作しています</div>
+                <div className="text-[11px] text-amber-800">
+                  操作内容は端末内に安全に保持され、電波回復時に自動でクラウドへ同期されます。
+                  {networkSync.lastSyncedAt && `（最終同期: ${networkSync.lastSyncedAt.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}）`}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => networkSync.manualResync()}
+              disabled={networkSync.isResyncing}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs transition active:scale-95 disabled:opacity-50 flex-shrink-0 cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${networkSync.isResyncing ? 'animate-spin' : ''}`} />
+              <span>{networkSync.isResyncing ? '再同期中' : '再同期を試みる'}</span>
+            </button>
           </div>
         )}
 
@@ -290,6 +311,11 @@ export const App: React.FC = () => {
             onReqNotifications={handleRequestNotification}
             onSwitchToAdmin={() => setIsAdminAuthOpen(true)}
             isLoading={isInitialLoading}
+            onUpdateTicket={handleUpdateTicket}
+            isOnline={networkSync.isOnline}
+            lastSyncedAt={networkSync.lastSyncedAt}
+            isResyncing={networkSync.isResyncing}
+            onManualResync={networkSync.manualResync}
           />
         ) : (
           // ADMIN VIEW: Progress Board & Time Slots
@@ -343,6 +369,7 @@ export const App: React.FC = () => {
         ticket={detailTicket}
         isOpen={Boolean(detailTicket)}
         onClose={() => setDetailTicket(null)}
+        onUpdateTicket={handleUpdateTicket}
       />
 
       {/* 3. Donation Guidelines & Rules Modal */}

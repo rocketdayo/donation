@@ -18,7 +18,11 @@ import {
   ArrowRight,
   RotateCcw,
   Undo2,
-  X
+  X,
+  PauseCircle,
+  ShieldCheck,
+  FileText,
+  AlertCircle
 } from 'lucide-react';
 import { sounds } from '../utils/audio';
 import { NotificationManager } from '../utils/notifications';
@@ -45,6 +49,7 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
   // Group by stage
   const callingList = filteredTickets.filter(t => t.queueStatus === 'called');
   const waitingList = filteredTickets.filter(t => t.queueStatus === 'waiting');
+  const onHoldList = filteredTickets.filter(t => t.queueStatus === 'on_hold' || t.queueStatus === 'absent');
   const interviewList = filteredTickets.filter(t => t.queueStatus === 'interview');
   const donatingList = filteredTickets.filter(t => t.queueStatus === 'donating');
   const restingList = filteredTickets.filter(t => t.queueStatus === 'resting');
@@ -128,11 +133,12 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
   const statusLabels: Record<QueueStatus, string> = {
     waiting: '待機中',
     called: '呼出中',
+    on_hold: '保留・不在',
     interview: '問診中',
     donating: '採血中',
     resting: '休憩中',
     done: '完了',
-    absent: '不在/保留'
+    absent: '不在/見送り'
   };
 
   // Change stage quick handler with Undo history
@@ -289,9 +295,13 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
               >
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="font-mono font-black text-slate-900 text-base">
+                    <button
+                      type="button"
+                      onClick={() => onOpenTicketDetail && onOpenTicketDetail(ticket)}
+                      className="font-mono font-black text-slate-900 text-base hover:text-rose-700 transition cursor-pointer"
+                    >
                       #{ticket.ticketNumber}
-                    </span>
+                    </button>
                     <div className="flex items-center gap-1.5">
                       {ticket.callCount && ticket.callCount > 1 && (
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
@@ -304,7 +314,13 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
 
                   <div className="mt-2">
                     <div className="flex items-center gap-1.5">
-                      <h4 className="text-sm font-bold text-slate-900">{ticket.name}</h4>
+                      <button
+                        type="button"
+                        onClick={() => onOpenTicketDetail && onOpenTicketDetail(ticket)}
+                        className="text-sm font-bold text-slate-900 hover:text-rose-700 text-left transition cursor-pointer"
+                      >
+                        {ticket.name}
+                      </button>
                       {ticket.attribute && (
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 border border-slate-200 text-slate-700">
                           {ticket.attribute}
@@ -317,13 +333,40 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
                         呼出時刻: {ticket.calledAt}
                       </p>
                     )}
+
+                    {/* Safety check & Consent indicators */}
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {ticket.safetyChecklist?.confirmedAt ? (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          安全チェック済
+                        </span>
+                      ) : (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-900 border border-amber-200">
+                          問診前要チェック
+                        </span>
+                      )}
+
+                      {ticket.parentalConsentStatus === 'submitted' && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                          <FileText className="w-3 h-3 text-emerald-600" />
+                          同意書受領済
+                        </span>
+                      )}
+                      {ticket.parentalConsentStatus === 'unconfirmed' && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3 text-amber-700" />
+                          同意書要確認
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-slate-200/80 flex items-center justify-between gap-2">
                   <button
                     onClick={() => handleCallTicket(ticket)}
-                    className="px-2.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs transition flex items-center gap-1 shadow-xs active:scale-95"
+                    className="px-2.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs transition flex items-center gap-1 shadow-xs active:scale-95 cursor-pointer"
                     title="スマホへ呼出通知・チャイムを送信"
                   >
                     <Megaphone className="w-3.5 h-3.5" />
@@ -332,18 +375,145 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
 
                   <div className="flex items-center gap-1.5">
                     <button
-                      onClick={() => handleStageTransition(ticket, 'waiting')}
-                      className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-medium transition"
+                      onClick={() => handleStageTransition(ticket, 'on_hold')}
+                      className="px-2.5 py-1.5 rounded-lg bg-white border border-amber-300 hover:bg-amber-50 text-amber-900 text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
+                      title="応答がないため一旦保留にし、次の受診者を呼べるようにします"
                     >
-                      保留
+                      <PauseCircle className="w-3.5 h-3.5 text-amber-600" />
+                      <span>保留(不在)</span>
                     </button>
                     <button
                       onClick={() => handleStageTransition(ticket, 'interview')}
-                      className="px-3 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold transition flex items-center gap-1 shadow-xs"
+                      className="px-3 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold transition flex items-center gap-1 shadow-xs cursor-pointer"
                     >
                       <Stethoscope className="w-3.5 h-3.5" />
                       問診へ
                     </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Absent & On-Hold (Skip Management) Section */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 mb-3 gap-2">
+          <div className="flex items-center gap-2">
+            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+              <PauseCircle className="w-4 h-4 text-amber-600" />
+              不在・保留（スキップ管理）
+            </h3>
+            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+              onHoldList.length > 0 ? 'bg-amber-100 text-amber-900 border border-amber-200' : 'bg-slate-100 text-slate-600'
+            }`}>
+              {onHoldList.length}名
+            </span>
+          </div>
+          <span className="text-[11px] text-slate-500">
+            呼出に応答がなかった方を一時保留中。到着時にワンクリックで即座に再呼出できます
+          </span>
+        </div>
+
+        {onHoldList.length === 0 ? (
+          <div className="text-center py-5 text-slate-400 text-xs bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+            現在、保留・不在の受診者はいません（お呼出に応答がない方を「保留(不在)」に設定するとここに集約されます）
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {onHoldList.map(ticket => (
+              <div
+                key={ticket.id}
+                className="bg-amber-50/40 border border-amber-200 rounded-xl p-3.5 flex flex-col justify-between space-y-2.5"
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => onOpenTicketDetail && onOpenTicketDetail(ticket)}
+                      className="font-mono font-black text-slate-900 text-sm hover:text-rose-700 transition cursor-pointer"
+                    >
+                      #{ticket.ticketNumber}
+                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                        {ticket.queueStatus === 'absent' ? '欠席/見送り' : '一時保留中'}
+                      </span>
+                      {ticket.callCount && ticket.callCount > 0 && (
+                        <span className="text-[10px] text-slate-500 font-medium">
+                          呼出 {ticket.callCount}回
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-1 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => onOpenTicketDetail && onOpenTicketDetail(ticket)}
+                      className="text-xs font-bold text-slate-900 hover:text-rose-700 text-left transition cursor-pointer"
+                    >
+                      {ticket.name}
+                    </button>
+                    <span className="text-[10px] text-slate-500">{ticket.timeSlot}</span>
+                  </div>
+
+                  {/* Checklist & Consent badges */}
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {ticket.safetyChecklist?.confirmedAt ? (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        ✓ 安全チェック済
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                        安全未確認
+                      </span>
+                    )}
+                    {ticket.parentalConsentStatus === 'submitted' && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        ✓ 同意書受領
+                      </span>
+                    )}
+                    {ticket.parentalConsentStatus === 'unconfirmed' && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                        ⚠️ 同意書要確認
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Action buttons */}
+                <div className="pt-2 border-t border-amber-200/60 flex items-center justify-between gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleCallTicket(ticket)}
+                    className="px-2.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs transition flex items-center gap-1 shadow-xs active:scale-95 cursor-pointer"
+                    title="到着時に即座に再呼出・通知します"
+                  >
+                    <Megaphone className="w-3.5 h-3.5" />
+                    <span>即座に再呼出</span>
+                  </button>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleStageTransition(ticket, 'waiting')}
+                      className="px-2 py-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs transition cursor-pointer"
+                      title="待機列に戻します"
+                    >
+                      待機列へ
+                    </button>
+                    {ticket.queueStatus !== 'absent' && (
+                      <button
+                        type="button"
+                        onClick={() => handleStageTransition(ticket, 'absent')}
+                        className="px-2 py-1 rounded-lg bg-white border border-rose-200 hover:bg-rose-50 text-rose-700 text-xs transition cursor-pointer"
+                        title="本日の受診を見送り・欠席にします"
+                      >
+                        欠席
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

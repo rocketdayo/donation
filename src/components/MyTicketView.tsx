@@ -10,7 +10,7 @@ import {
   User, 
   Mail, 
   ChevronRight,
-  Send,
+  Send, 
   Sparkles,
   QrCode,
   Smartphone,
@@ -24,7 +24,13 @@ import {
   LogOut,
   ArrowRight,
   Check,
-  MapPin
+  MapPin,
+  Wifi,
+  WifiOff,
+  RefreshCw,
+  PauseCircle,
+  ShieldCheck,
+  FileText
 } from 'lucide-react';
 import { NotificationManager } from '../utils/notifications';
 import { sounds } from '../utils/audio';
@@ -32,6 +38,7 @@ import { auth } from '../firebase';
 import { DonationGuidelines } from './DonationGuidelines';
 import { LoadingScreen } from './LoadingScreen';
 import { findMatchingTicket, normalizeQueryString } from '../utils/studentIdMatcher';
+import { SafetyChecklistCard } from './SafetyChecklistCard';
 
 interface MyTicketViewProps {
   tickets: TicketRecord[];
@@ -39,6 +46,11 @@ interface MyTicketViewProps {
   onReqNotifications: () => void;
   onSwitchToAdmin?: () => void;
   isLoading?: boolean;
+  onUpdateTicket?: (id: string, partial: Partial<TicketRecord>) => void;
+  isOnline?: boolean;
+  lastSyncedAt?: Date | null;
+  isResyncing?: boolean;
+  onManualResync?: () => Promise<void>;
 }
 
 const STORAGE_EMAIL_KEY = 'blood_donation_user_email';
@@ -49,6 +61,11 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
   onReqNotifications,
   onSwitchToAdmin,
   isLoading = false,
+  onUpdateTicket,
+  isOnline = true,
+  lastSyncedAt,
+  isResyncing = false,
+  onManualResync,
 }) => {
   // Saved or verified user email
   const [userEmail, setUserEmail] = useState<string>(() => {
@@ -249,6 +266,15 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
           bgClass: 'bg-teal-600 text-white',
           borderClass: 'border-teal-400',
           cardBg: 'bg-teal-50/40'
+        };
+      case 'on_hold':
+        return {
+          title: '一時保留（不在スキップ）',
+          description: '呼出時にご不在だったため一時保留となっています。バスへ到着されましたらスタッフにお声がけください',
+          badge: '保留中',
+          bgClass: 'bg-amber-600 text-white',
+          borderClass: 'border-amber-400',
+          cardBg: 'bg-amber-50/70'
         };
       case 'done':
         return {
@@ -457,6 +483,42 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
             </button>
           </div>
 
+          {/* Offline / Realtime Sync Status Bar */}
+          <div className="flex items-center justify-between px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-xs shadow-2xs">
+            <div className="flex items-center gap-2">
+              {isOnline ? (
+                <span className="flex items-center gap-1.5 text-emerald-700 font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <Wifi className="w-3.5 h-3.5 text-emerald-600" />
+                  リアルタイム更新中
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 text-amber-700 font-bold">
+                  <WifiOff className="w-3.5 h-3.5 text-amber-600" />
+                  オフライン表示中（端末保存データ）
+                </span>
+              )}
+              {lastSyncedAt && (
+                <span className="text-[11px] text-slate-400">
+                  最終同期: {lastSyncedAt.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </div>
+
+            {onManualResync && (
+              <button
+                type="button"
+                onClick={onManualResync}
+                disabled={isResyncing}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition active:scale-95 cursor-pointer disabled:opacity-50"
+                title="電波回復時にサーバーと呼出状況を再同期します"
+              >
+                <RefreshCw className={`w-3 h-3 ${isResyncing ? 'animate-spin text-rose-700' : 'text-slate-500'}`} />
+                <span>{isResyncing ? '同期中...' : '再同期'}</span>
+              </button>
+            )}
+          </div>
+
           {/* Main Elegantly Designed Ticket Card */}
           <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
             {/* Upper Premium Header */}
@@ -578,6 +640,40 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
               )}
             </div>
           </div>
+
+          {/* Parental Consent Notice if Student / Minor */}
+          {(currentTicket.isStudent || currentTicket.attribute === '学生' || currentTicket.parentalConsentStatus) && (
+            <div className="p-4 rounded-3xl bg-amber-50/70 border border-amber-200 shadow-xs space-y-2 text-xs text-amber-950">
+              <div className="flex items-center justify-between">
+                <div className="font-bold flex items-center gap-1.5 text-amber-900">
+                  <FileText className="w-4 h-4 text-amber-700" />
+                  <span>未成年・学生献血の親権者同意確認</span>
+                </div>
+                {currentTicket.parentalConsentStatus === 'submitted' ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                    <Check className="w-3 h-3 text-emerald-700" />
+                    同意書受領済
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                    受付時に同意書確認
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-amber-900/85 leading-relaxed">
+                16〜17歳の受診、または学校・赤十字の規定に該当する場合、受付時に保護者様の同意書確認が必要となります。同意書をお持ちでない方は受付にてご相談ください。
+              </p>
+            </div>
+          )}
+
+          {/* Donor Safety & Pre-check Checklist Card */}
+          {onUpdateTicket && (
+            <SafetyChecklistCard
+              ticket={currentTicket}
+              onSave={(checklist) => onUpdateTicket(currentTicket.id, { safetyChecklist: checklist })}
+              mode="donor"
+            />
+          )}
 
           {/* Notification Permission & PWA Installation Card */}
           <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-4">

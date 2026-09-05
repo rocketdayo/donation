@@ -29,7 +29,7 @@ service cloud.firestore {
         && data.timeSlot is string && data.timeSlot.size() <= 50
         && (!('scheduledDate' in data) || (data.scheduledDate is string && data.scheduledDate.size() <= 50))
         && data.attendance in ['unattended', 'present', 'absent', 'completed']
-        && data.queueStatus in ['waiting', 'called', 'interview', 'donating', 'resting', 'done', 'absent']
+        && data.queueStatus in ['waiting', 'called', 'on_hold', 'interview', 'donating', 'resting', 'done', 'absent']
         && (!('attribute' in data) || (data.attribute is string && data.attribute.size() <= 100))
         && (!('bloodType' in data) || (data.bloodType is string && data.bloodType.size() <= 20))
         && (!('donationType' in data) || (data.donationType is string && data.donationType.size() <= 50))
@@ -41,7 +41,9 @@ service cloud.firestore {
         && (!('callCount' in data) || data.callCount is number)
         && (!('completedAt' in data) || (data.completedAt is string && data.completedAt.size() <= 50))
         && (!('lotteryResult' in data) || (data.lotteryResult is string && data.lotteryResult.size() <= 50))
-        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 500));
+        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 500))
+        && (!('parentalConsentStatus' in data) || (data.parentalConsentStatus in ['not_required', 'submitted', 'unconfirmed']))
+        && (!('safetyChecklist' in data) || data.safetyChecklist is map);
     }
 
     // Connection test document

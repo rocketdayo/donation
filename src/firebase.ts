@@ -117,6 +117,19 @@ export function subscribeToTickets(
   );
 }
 
+// Fetch current tickets once from Firestore (for manual re-sync)
+export async function fetchTicketsFromFirestore(): Promise<TicketRecord[]> {
+  const ticketsCol = collection(db, 'tickets');
+  const snapshot = await getDocs(ticketsCol);
+  if (snapshot.empty) return [];
+  const list: TicketRecord[] = [];
+  snapshot.forEach((d) => {
+    list.push(d.data() as TicketRecord);
+  });
+  list.sort((a, b) => a.ticketNumber - b.ticketNumber);
+  return list;
+}
+
 // Seed initial tickets
 export async function seedInitialTickets(): Promise<void> {
   const batch = writeBatch(db);
