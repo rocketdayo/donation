@@ -3,13 +3,9 @@ import {
   Gift, 
   Search, 
   ChevronDown, 
-  CheckCircle2, 
-  AlertCircle,
-  FileSpreadsheet,
-  Trophy,
-  Filter
+  FileSpreadsheet
 } from 'lucide-react';
-import { TicketRecord, AttendanceStatus } from '../types';
+import { TicketRecord } from '../types';
 
 interface AdminLotteryRosterProps {
   tickets: TicketRecord[];
@@ -37,13 +33,11 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [lotteryFilter, setLotteryFilter] = useState<'all' | 'pending' | 'completed'>('all');
 
-  // Filtered tickets sorted by ticket number
   const filteredTickets = useMemo(() => {
     return tickets
       .slice()
       .sort((a, b) => a.ticketNumber - b.ticketNumber)
       .filter((t) => {
-        // Text search (name, number, attribute, email)
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase().trim();
           const matchNum = String(t.ticketNumber).includes(q);
@@ -55,7 +49,6 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
           }
         }
 
-        // Lottery status filter
         if (lotteryFilter === 'pending') {
           return !t.lotteryResult || t.lotteryResult === '未抽選';
         }
@@ -67,12 +60,10 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
       });
   }, [tickets, searchQuery, lotteryFilter]);
 
-  // Check if ticket donation is completed
   const isTicketCompleted = (t: TicketRecord) => {
     return t.queueStatus === 'done' || t.attendance === 'completed';
   };
 
-  // Statistics calculation
   const stats = useMemo(() => {
     const total = tickets.length;
     const completedCount = tickets.filter(isTicketCompleted).length;
@@ -103,18 +94,15 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
     };
   }, [tickets]);
 
-  // Toggle attendance status (出席 ↔ 欠席) with 1 click to easily revert accidental completion
   const handleToggleAttendance = (ticket: TicketRecord) => {
     if (!onUpdateTicket) return;
     const completed = isTicketCompleted(ticket);
     if (completed) {
-      // Revert from completed to waiting / absent
       onUpdateTicket(ticket.id, {
         attendance: 'absent',
         queueStatus: 'waiting'
       });
     } else {
-      // Mark as completed / present
       onUpdateTicket(ticket.id, {
         attendance: 'completed',
         queueStatus: 'done',
@@ -123,7 +111,6 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
     }
   };
 
-  // Format attendance display: 完了した人は出席、まだ完了してない人は欠席 (クリックで切り替え・取り消し可能)
   const renderAttendanceBadge = (ticket: TicketRecord) => {
     const completed = isTicketCompleted(ticket);
     return (
@@ -135,42 +122,34 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
             ? 'bg-[#fed7d7] text-[#c53030] border-rose-300/80 hover:bg-[#feb2b2]'
             : 'bg-slate-100 text-slate-600 border-slate-300/80 hover:bg-slate-200'
         }`}
-        title="クリックで出席（完了）と欠席（待機中）を切り替えます。誤操作の取り消しにも使用できます。"
+        title="クリックで出席（完了）と欠席（待機中）を切り替えます"
       >
         {completed ? '出席' : '欠席'}
       </button>
     );
   };
 
-  // Dynamic styling for lottery result dropdown pill matching Image 1: 「四等 ▼」
   const getLotterySelectStyle = (result?: string) => {
     switch (result) {
       case '四等':
-        // Soft lavender/purple pill with deep purple text matching Image 1
         return 'bg-[#e9d8fd] text-[#553c9a] border-[#b794f4] hover:bg-[#d6bcfa]';
       case '一等':
-        // Gold/amber
         return 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200';
       case '二等':
-        // Sky blue
         return 'bg-blue-100 text-blue-900 border-blue-300 hover:bg-blue-200';
       case '三等':
-        // Emerald green
         return 'bg-emerald-100 text-emerald-900 border-emerald-300 hover:bg-emerald-200';
       case '参加賞':
-        // Slate / neutral
         return 'bg-slate-100 text-slate-800 border-slate-300 hover:bg-slate-200';
       case 'はずれ':
         return 'bg-zinc-100 text-zinc-600 border-zinc-300 hover:bg-zinc-200';
       default:
-        // Empty / 未抽選
         return 'bg-white text-slate-400 border-dashed border-slate-300 hover:border-slate-400 hover:text-slate-600';
     }
   };
 
   return (
     <div className="space-y-4">
-      {/* Top Banner & Instructions */}
       <div className="bg-white rounded-xl p-4 sm:p-5 border border-slate-200 shadow-2xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -178,7 +157,7 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
               <span className="p-1.5 rounded-lg bg-purple-50 text-purple-700 border border-purple-200">
                 <Gift className="w-5 h-5" />
               </span>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900">
+              <h2 className="text-base sm:text-lg font-bold text-slate-800">
                 くじ引き・受診者名簿
               </h2>
             </div>
@@ -189,8 +168,9 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
 
           {onOpenSpreadsheet && (
             <button
+              type="button"
               onClick={onOpenSpreadsheet}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition self-start sm:self-center"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition self-start sm:self-center cursor-pointer"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
               <span>シート連携を開く</span>
@@ -198,10 +178,9 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
           )}
         </div>
 
-        {/* Aggregate Stats Badges */}
         <div className="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
           <div className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 font-medium">
-            受診登録: <span className="font-bold text-slate-900">{stats.total}名</span>
+            受診登録: <span className="font-bold text-slate-800">{stats.total}名</span>
           </div>
           <div className="px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 font-medium">
             出席（完了）: <span className="font-bold text-rose-900">{stats.completedCount}名</span>
@@ -233,9 +212,7 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
         </div>
       </div>
 
-      {/* Control Filters Bar */}
       <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-2xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        {/* Search input */}
         <div className="relative flex-1">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -243,38 +220,40 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="番号、名前、属性（生徒/教員など）で検索..."
-            className="w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 bg-slate-50/50"
+            className="w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-slate-50/50"
           />
         </div>
 
-        {/* Filter buttons */}
         <div className="flex items-center gap-1.5 text-xs">
           <span className="text-slate-500 text-xs hidden sm:inline flex-shrink-0">絞り込み:</span>
           <button
+            type="button"
             onClick={() => setLotteryFilter('all')}
-            className={`px-2.5 py-1.5 rounded-lg font-medium transition ${
+            className={`px-2.5 py-1.5 rounded-lg font-medium transition cursor-pointer ${
               lotteryFilter === 'all'
-                ? 'bg-slate-900 text-white'
+                ? 'bg-rose-700 text-white'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             全員
           </button>
           <button
+            type="button"
             onClick={() => setLotteryFilter('pending')}
-            className={`px-2.5 py-1.5 rounded-lg font-medium transition ${
+            className={`px-2.5 py-1.5 rounded-lg font-medium transition cursor-pointer ${
               lotteryFilter === 'pending'
-                ? 'bg-purple-700 text-white'
+                ? 'bg-rose-700 text-white'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             未抽選のみ
           </button>
           <button
+            type="button"
             onClick={() => setLotteryFilter('completed')}
-            className={`px-2.5 py-1.5 rounded-lg font-medium transition ${
+            className={`px-2.5 py-1.5 rounded-lg font-medium transition cursor-pointer ${
               lotteryFilter === 'completed'
-                ? 'bg-purple-700 text-white'
+                ? 'bg-rose-700 text-white'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
@@ -283,7 +262,6 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
         </div>
       </div>
 
-      {/* Main Table: 番号 | 時間 | 名前 | 属性 | 出欠 | くじ引きの結果 */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -306,7 +284,6 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
                 </tr>
               ) : (
                 filteredTickets.map((ticket) => {
-                  // Display time: use raw arrive/appointment time or timeSlot
                   const displayTime = ticket.arrivedAt || ticket.timeSlot;
                   const currentResult = ticket.lotteryResult || '';
 
@@ -315,38 +292,32 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
                       key={ticket.id} 
                       className="hover:bg-slate-50/75 transition-colors"
                     >
-                      {/* 1. 番号 (Read-only) */}
                       <td className="py-3 px-4 text-center font-bold text-slate-800 border-r border-slate-200/80 tabular-nums">
                         {ticket.ticketNumber}
                       </td>
 
-                      {/* 2. 時間 (Read-only) */}
                       <td className="py-3 px-4 text-slate-800 font-medium border-r border-slate-200/80 tabular-nums whitespace-nowrap">
                         {displayTime}
                       </td>
 
-                      {/* 3. 名前 (Read-only) */}
-                      <td className="py-3 px-4 font-bold text-slate-900 border-r border-slate-200/80 whitespace-nowrap">
+                      <td className="py-3 px-4 font-bold text-slate-800 border-r border-slate-200/80 whitespace-nowrap">
                         {ticket.name}
                       </td>
 
-                      {/* 4. 属性 (Read-only) */}
                       <td className="py-3 px-4 text-slate-700 border-r border-slate-200/80 whitespace-nowrap">
                         {ticket.attribute || '生徒'}
                       </td>
 
-                      {/* 5. 出欠 (完了した人は出席、まだ完了してない人は欠席) */}
                       <td className="py-2.5 px-4 text-center border-r border-slate-200/80 whitespace-nowrap">
                         {renderAttendanceBadge(ticket)}
                       </td>
 
-                      {/* 6. くじ引きの結果 (Selectable dropdown styled matching Image 1) */}
                       <td className="py-2.5 px-4">
                         <div className="relative inline-block">
                           <select
                             value={currentResult}
                             onChange={(e) => onUpdateLotteryResult(ticket.id, e.target.value)}
-                            className={`appearance-none cursor-pointer pl-3.5 pr-7 py-1 rounded-full text-xs font-bold border transition shadow-2xs focus:outline-none focus:ring-2 focus:ring-purple-400/50 ${getLotterySelectStyle(currentResult)}`}
+                            className={`appearance-none cursor-pointer pl-3.5 pr-7 py-1 rounded-full text-xs font-bold border transition shadow-2xs focus:outline-none focus:ring-2 focus:ring-rose-400/50 ${getLotterySelectStyle(currentResult)}`}
                             title="くじ引き結果を選択してください"
                           >
                             {LOTTERY_OPTIONS.map((opt) => (

@@ -1,22 +1,15 @@
-/**
- * Web Notifications & Push Notification Manager
- */
 import { NotificationLog, TicketRecord } from '../types';
 import { sounds } from './audio';
 
 export class NotificationManager {
   private static STORAGE_KEY = 'blood_donation_notifications';
 
-  /**
-   * Request Notification Permission from Browser / PWA
-   */
   public static async requestPermission(): Promise<NotificationPermission> {
     if (typeof window === 'undefined' || !('Notification' in window)) {
       console.warn('Notifications not supported in this environment');
       return 'denied';
     }
     try {
-      // Unlock audio context on user gesture
       sounds.unlock();
 
       const permission = await Notification.requestPermission();
@@ -41,23 +34,15 @@ export class NotificationManager {
     return Notification.permission;
   }
 
-  /**
-   * Send local browser / PWA notification
-   * Configured to follow Google Chrome / Android Safe Notification guidelines
-   * (Standard PNG badge/icon, gentle vibration, no requireInteraction flag)
-   */
   public static async sendLocalNotification(title: string, body: string, tag?: string): Promise<void> {
     if (typeof window === 'undefined' || !('Notification' in window)) {
       return;
     }
 
-    // Gentle vibration on mobile if supported
     if ('vibrate' in navigator) {
       try {
         navigator.vibrate([200, 100, 200]);
-      } catch {
-        // Ignore vibration errors
-      }
+      } catch {}
     }
 
     if (Notification.permission !== 'granted') {
@@ -75,7 +60,6 @@ export class NotificationManager {
         badge: badgeUrl,
         tag: notifTag,
         renotify: true,
-        // requireInteraction is intentionally omitted as it triggers Chrome/Android spam/suspicious filters
         vibrate: [200, 100, 200],
         data: {
           url: typeof window !== 'undefined' ? window.location.href : '/',
@@ -90,9 +74,7 @@ export class NotificationManager {
             await reg.showNotification(title, notifOptions);
             return;
           }
-        } catch {
-          // Fall back to standard Notification
-        }
+        } catch {}
       }
 
       new Notification(title, {
@@ -106,31 +88,23 @@ export class NotificationManager {
     }
   }
 
-  /**
-   * Trigger calling notification (Audio Chime + Vibration + Clean System Notification Bar)
-   */
   public static async sendCallNotification(ticket: TicketRecord): Promise<NotificationLog> {
     const title = `献血バスへのお呼出（整理券 ${ticket.ticketNumber}番）`;
     const body = `${ticket.name} 様、受付の順番になりました。食堂前の献血バスへお越しください。`;
     const tag = `call-${ticket.id}`;
 
-    // 1. Play Calling Chime
     try {
       sounds.playCallingChime();
     } catch (e) {
       console.warn('Calling chime error:', e);
     }
 
-    // 2. Mobile Device Vibration (Gentle standard pulse)
     if (typeof window !== 'undefined' && 'vibrate' in navigator) {
       try {
         navigator.vibrate([200, 100, 200]);
-      } catch {
-        // Ignore
-      }
+      } catch {}
     }
 
-    // 3. Send System Notification
     await this.sendLocalNotification(title, body, tag);
 
     const log: NotificationLog = {
@@ -189,11 +163,9 @@ export class NotificationManager {
     if (typeof window === 'undefined') return;
     try {
       const current = this.getNotificationLogs();
-      const updated = [log, ...current].slice(0, 50); // keep recent 50
+      const updated = [log, ...current].slice(0, 50);
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updated));
-    } catch {
-      // Ignore storage errors
-    }
+    } catch {}
   }
 
   public static clearLogs() {
@@ -201,4 +173,3 @@ export class NotificationManager {
     localStorage.removeItem(this.STORAGE_KEY);
   }
 }
-

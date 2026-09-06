@@ -5,9 +5,7 @@ import {
 } from './types';
 import { 
   loadTicketsFromStorage, 
-  saveTicketsToStorage, 
-  SAMPLE_TICKETS,
-  INITIAL_TICKETS
+  saveTicketsToStorage
 } from './utils/storage';
 import { sounds } from './utils/audio';
 import { NotificationManager } from './utils/notifications';
@@ -17,14 +15,11 @@ import {
   updateFirestoreTicket, 
   syncAllTicketsToFirestore,
   subscribeToSyncSettings,
-  saveSyncSettings,
   SyncSettings
 } from './firebase';
-import { fetchGoogleSheetCSV, sendUpdateToGoogleSheet } from './utils/spreadsheet';
 import { WifiOff, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { useNetworkSync } from './hooks/useNetworkSync';
 
-// Components
 import { Header } from './components/Header';
 import { MyTicketView } from './components/MyTicketView';
 import { LiveQueueBoard } from './components/LiveQueueBoard';
@@ -38,7 +33,6 @@ import { AdminAuthModal } from './components/AdminAuthModal';
 import { LoadingScreen } from './components/LoadingScreen';
 
 export const App: React.FC = () => {
-  // State
   const [tickets, setTickets] = useState<TicketRecord[]>(() => loadTicketsFromStorage());
   const [isAdminMode, setIsAdminMode] = useState<boolean>(false);
   const [isAdminAuthOpen, setIsAdminAuthOpen] = useState<boolean>(false);
@@ -50,23 +44,19 @@ export const App: React.FC = () => {
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   );
 
-  // Modals state
   const [isSpreadsheetOpen, setIsSpreadsheetOpen] = useState(false);
   const [isGuidelinesOpen, setIsGuidelinesOpen] = useState(false);
   const [detailTicket, setDetailTicket] = useState<TicketRecord | null>(null);
-  const [syncSettings, setSyncSettings] = useState<SyncSettings | null>(() => {
+  const [, setSyncSettings] = useState<SyncSettings | null>(() => {
     const localUrl = localStorage.getItem('blood_donation_sheet_url') || 'https://rocketdayo.github.io/donation/';
     return { sheetUrl: localUrl, autoSync: true, intervalSec: 60 };
   });
 
-  // Real-time network sync hook with offline resilience & manual resync
   const networkSync = useNetworkSync((updatedTickets) => {
     setTickets(updatedTickets);
   });
 
-  // Initialize and subscribe to Firestore
   useEffect(() => {
-    // Safety timer: fallback from loading screen after 1.5s if offline/cached
     const timer = setTimeout(() => {
       setIsInitialLoading(false);
     }, 1500);
@@ -102,7 +92,6 @@ export const App: React.FC = () => {
     };
   }, [networkSync]);
 
-  // Helper: Merge spreadsheet data with live state, restoring any explicit statuses from spreadsheet
   const mergeSheetTicketsWithExisting = (
     fetched: TicketRecord[],
     current: TicketRecord[]
@@ -116,25 +105,20 @@ export const App: React.FC = () => {
     });
 
     return fetched.map(item => {
-      // Find existing record by ID or by email to prevent numbering shift issues
       const existing = currentMap.get(item.id) || (item.email ? emailMap.get(item.email.trim().toLowerCase()) : undefined);
       if (!existing) {
         return item;
       }
 
-      // スプレッドシート側で状態が指定されている場合（問診検査中、呼び出し中、採血中、休憩中、完了など）は、
-      // スプレッドシートを正本として優先反映・修復する
       let finalQueueStatus = item.queueStatus;
       let finalAttendance = item.attendance;
 
       if (item.queueStatus === 'waiting' && item.attendance === 'absent') {
-        // スプレッドシート側が待機中の場合: アプリ側ですでに進行中のステータス（呼び出し中など）があれば維持
         if (existing.queueStatus !== 'waiting') {
           finalQueueStatus = existing.queueStatus;
           finalAttendance = existing.attendance;
         }
       } else {
-        // スプレッドシートに明示的にステータス（問診検査中、採血中、呼び出し中、休憩中、完了等）が記録されている場合
         finalQueueStatus = item.queueStatus;
         finalAttendance = item.attendance;
       }
@@ -155,7 +139,6 @@ export const App: React.FC = () => {
     });
   };
 
-  // Audio Context unlock on initial user gesture (crucial for mobile audio/speech)
   useEffect(() => {
     const handleGesture = () => {
       sounds.unlock();
@@ -168,7 +151,6 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  // Request Notification Permission
   const handleRequestNotification = async () => {
     sounds.unlock();
     const perm = await NotificationManager.requestPermission();
@@ -183,9 +165,7 @@ export const App: React.FC = () => {
     }
   };
 
-  // Update single ticket record (sync to Firestore + optimistic local update, internal app/cloud authoritative)
   const handleUpdateTicket = async (id: string, partial: Partial<TicketRecord>) => {
-    // Optimistic local update
     setTickets(prev => {
       const next = prev.map(t => {
         if (t.id === id) {
@@ -197,7 +177,6 @@ export const App: React.FC = () => {
       return next;
     });
 
-    // Update in Firestore (all connected staff and participant screens update in real time)
     try {
       await updateFirestoreTicket(id, partial);
     } catch (err) {
@@ -205,7 +184,6 @@ export const App: React.FC = () => {
     }
   };
 
-  // Import tickets from spreadsheet / CSV
   const handleImportTickets = async (newTickets: TicketRecord[]) => {
     const merged = mergeSheetTicketsWithExisting(newTickets, tickets);
     setTickets(merged);
@@ -217,7 +195,6 @@ export const App: React.FC = () => {
     }
   };
 
-  // Reset / Clear all tickets
   const handleResetData = async () => {
     if (window.confirm('受診者データをすべて消去しますか？')) {
       setTickets([]);
@@ -230,14 +207,12 @@ export const App: React.FC = () => {
     }
   };
 
-  // Counts
   const waitingCount = tickets.filter(t => t.queueStatus === 'waiting').length;
   const callingCount = tickets.filter(t => t.queueStatus === 'called').length;
   const completedCount = tickets.filter(t => t.queueStatus === 'done').length;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-slate-800 selection:text-white pb-12">
-      {/* Top Header */}
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-rose-100 selection:text-rose-900 pb-12">
       <Header
         isAdminMode={isAdminMode}
         setIsAdminMode={setIsAdminMode}
@@ -260,24 +235,21 @@ export const App: React.FC = () => {
         onManualResync={networkSync.manualResync}
       />
 
-      {/* Main Area */}
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5">
-        {/* Network Sync Message Toast / Alert */}
         {networkSync.syncMessage && (
-          <div className="mb-4 p-3 bg-slate-900 text-white rounded-2xl flex items-center justify-between text-xs shadow-lg animate-in fade-in slide-in-from-top-1">
+          <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-2xl flex items-center justify-between text-xs shadow-xs animate-in fade-in slide-in-from-top-1">
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-              <span>{networkSync.syncMessage}</span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-700 flex-shrink-0" />
+              <span className="font-bold text-emerald-900">{networkSync.syncMessage}</span>
             </div>
             {networkSync.lastSyncedAt && (
-              <span className="text-[10px] text-slate-400">
+              <span className="text-[11px] text-emerald-700 font-medium">
                 最終更新: {networkSync.lastSyncedAt.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
           </div>
         )}
 
-        {/* Offline Safety Notice */}
         {!networkSync.isOnline && (
           <div className="mb-4 p-3.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl flex items-center justify-between text-xs animate-in fade-in">
             <div className="flex items-center gap-2.5">
@@ -291,6 +263,7 @@ export const App: React.FC = () => {
               </div>
             </div>
             <button
+              type="button"
               onClick={() => networkSync.manualResync()}
               disabled={networkSync.isResyncing}
               className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs transition active:scale-95 disabled:opacity-50 flex-shrink-0 cursor-pointer"
@@ -304,7 +277,6 @@ export const App: React.FC = () => {
         {isInitialLoading && tickets.length === 0 ? (
           <LoadingScreen onSkip={() => setIsInitialLoading(false)} />
         ) : !isAdminMode ? (
-          // USER VIEW: My Ticket Only (Clean, calm, high quality)
           <MyTicketView
             tickets={tickets}
             notificationPermission={notificationPermission}
@@ -318,7 +290,6 @@ export const App: React.FC = () => {
             onManualResync={networkSync.manualResync}
           />
         ) : (
-          // ADMIN VIEW: Progress Board & Time Slots
           <>
             {adminTab === 'queue' && (
               <LiveQueueBoard
@@ -346,7 +317,6 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      {/* Footer (includes copyright and the only entry point for admin mode) */}
       <Footer
         isAdminMode={isAdminMode}
         onOpenAdminAuth={() => setIsAdminAuthOpen(true)}
@@ -355,8 +325,6 @@ export const App: React.FC = () => {
         onResetData={handleResetData}
       />
 
-      {/* Modals */}
-      {/* 1. Spreadsheet Sync Modal */}
       <SpreadsheetSyncModal
         isOpen={isSpreadsheetOpen}
         onClose={() => setIsSpreadsheetOpen(false)}
@@ -364,7 +332,6 @@ export const App: React.FC = () => {
         onImportTickets={handleImportTickets}
       />
 
-      {/* 2. Ticket Detail Modal */}
       <TicketDetailModal
         ticket={detailTicket}
         isOpen={Boolean(detailTicket)}
@@ -372,13 +339,11 @@ export const App: React.FC = () => {
         onUpdateTicket={handleUpdateTicket}
       />
 
-      {/* 3. Donation Guidelines & Rules Modal */}
       <DonationGuidelinesModal
         isOpen={isGuidelinesOpen}
         onClose={() => setIsGuidelinesOpen(false)}
       />
 
-      {/* 4. Admin Password Authentication Modal */}
       <AdminAuthModal
         isOpen={isAdminAuthOpen}
         onClose={() => setIsAdminAuthOpen(false)}

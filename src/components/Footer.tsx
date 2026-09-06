@@ -1,5 +1,5 @@
 import React from 'react';
-import { Lock, Shield, ArrowRight, RefreshCw } from 'lucide-react';
+import { Lock, ArrowRight } from 'lucide-react';
 
 interface FooterProps {
   isAdminMode: boolean;
@@ -19,7 +19,6 @@ export const Footer: React.FC<FooterProps> = ({
   return (
     <footer className="w-full bg-white border-t border-slate-200/90 mt-16 text-slate-500 text-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-4">
-        {/* Top line with system info & status */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
           <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-slate-600">
             <span className="font-semibold text-slate-700">献血整理券＆受付管理システム</span>
@@ -30,18 +29,19 @@ export const Footer: React.FC<FooterProps> = ({
             </span>
           </div>
 
-          {/* Bottom Admin Switch (Only place where admin mode toggle is placed for users) */}
           <div className="flex items-center gap-2">
             {isAdminMode ? (
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={onResetData}
-                  className="px-2.5 py-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition text-[11px]"
+                  className="px-2.5 py-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition text-[11px] cursor-pointer"
                   title="予約データをすべて消去"
                 >
                   データ全消去
                 </button>
                 <button
+                  type="button"
                   onClick={onExitAdminMode}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition cursor-pointer"
                 >
@@ -51,6 +51,7 @@ export const Footer: React.FC<FooterProps> = ({
               </div>
             ) : (
               <button
+                type="button"
                 onClick={onOpenAdminAuth}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100/80 border border-slate-200/80 transition cursor-pointer"
                 title="運営関係者専用画面への移行"
@@ -62,7 +63,6 @@ export const Footer: React.FC<FooterProps> = ({
           </div>
         </div>
 
-        {/* Divider */}
         <div className="border-t border-slate-100 pt-4 text-center">
           <p className="text-[11px] text-slate-400 tracking-wide font-normal">
             2026 Seikyo Gakuen High School Culture Festival. All Rights Reserved.

@@ -13,27 +13,6 @@ export function useNetworkSync(
   const [isResyncing, setIsResyncing] = useState<boolean>(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true);
-      setSyncMessage('オンラインに復帰しました。再同期中...');
-      // Auto trigger resync when returning online
-      manualResync();
-    };
-    const handleOffline = () => {
-      setIsOnline(false);
-      setSyncMessage('電波が切断されました（オフライン・ローカルキャッシュ利用中）');
-    };
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-
   const manualResync = useCallback(async () => {
     setIsResyncing(true);
     try {
@@ -54,6 +33,26 @@ export function useNetworkSync(
     }
   }, [onTicketsUpdated]);
 
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      setSyncMessage('オンラインに復帰しました。再同期中...');
+      manualResync();
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      setSyncMessage('電波が切断されました（オフライン・ローカルキャッシュ利用中）');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [manualResync]);
+
   const recordSyncTimestamp = useCallback(() => {
     setLastSyncedAt(new Date());
   }, []);
@@ -68,9 +67,6 @@ export function useNetworkSync(
   };
 }
 
-/**
- * Format relative time for display: e.g. "たった今", "12秒前", "2分前"
- */
 export function formatRelativeTime(date: Date | null): string {
   if (!date) return '未同期';
   const now = Date.now();

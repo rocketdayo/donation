@@ -4,13 +4,15 @@ import { TicketRecord, SafetyChecklist, ParentalConsentStatus } from '../types';
 
 interface SafetyChecklistCardProps {
   ticket: TicketRecord;
-  onUpdateTicket: (id: string, partial: Partial<TicketRecord>) => void;
+  onUpdateTicket?: (id: string, partial: Partial<TicketRecord>) => void;
+  onSave?: (checklist: SafetyChecklist) => void;
   isAdmin?: boolean;
 }
 
 export const SafetyChecklistCard: React.FC<SafetyChecklistCardProps> = ({
   ticket,
   onUpdateTicket,
+  onSave,
   isAdmin = false
 }) => {
   const [isOpen, setIsOpen] = useState(!ticket.safetyChecklist?.confirmedAt);
@@ -48,20 +50,27 @@ export const SafetyChecklistCard: React.FC<SafetyChecklistCardProps> = ({
       ...checklist,
       confirmedAt: isComplete ? timeStr : undefined
     };
-    onUpdateTicket(ticket.id, {
-      safetyChecklist: nextChecklist
-    });
+    if (onSave) {
+      onSave(nextChecklist);
+    }
+    if (onUpdateTicket) {
+      onUpdateTicket(ticket.id, {
+        safetyChecklist: nextChecklist
+      });
+    }
     setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
+    setTimeout(() => setIsSaved(false), 3500);
     if (isComplete) {
       setIsOpen(false);
     }
   };
 
   const handleToggleConsent = (status: ParentalConsentStatus) => {
-    onUpdateTicket(ticket.id, {
-      parentalConsentStatus: status
-    });
+    if (onUpdateTicket) {
+      onUpdateTicket(ticket.id, {
+        parentalConsentStatus: status
+      });
+    }
   };
 
   const isStudent = ticket.attribute === '生徒' || (!ticket.attribute && ticket.email.includes('@'));
@@ -69,7 +78,6 @@ export const SafetyChecklistCard: React.FC<SafetyChecklistCardProps> = ({
 
   return (
     <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-4">
-      {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className={`p-2.5 rounded-2xl flex-shrink-0 border ${
@@ -81,7 +89,7 @@ export const SafetyChecklistCard: React.FC<SafetyChecklistCardProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h4 className="text-sm font-bold text-slate-900">
+              <h4 className="text-sm font-bold text-slate-800">
                 献血前の安全セルフチェック
               </h4>
               {isConfirmed ? (
@@ -101,15 +109,15 @@ export const SafetyChecklistCard: React.FC<SafetyChecklistCardProps> = ({
         </div>
 
         <button
+          type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+          className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition cursor-pointer"
           aria-label="セルフチェック詳細を開閉"
         >
           {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </button>
       </div>
 
-      {/* Parental Consent Section (Student / Minor reminder) */}
       <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 space-y-2">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -124,7 +132,7 @@ export const SafetyChecklistCard: React.FC<SafetyChecklistCardProps> = ({
               <button
                 type="button"
                 onClick={() => handleToggleConsent('submitted')}
-                className={`px-2 py-1 rounded-lg text-[11px] font-semibold border transition ${
+                className={`px-2 py-1 rounded-lg text-[11px] font-semibold border transition cursor-pointer ${
                   consentStatus === 'submitted'
                     ? 'bg-emerald-600 text-white border-emerald-600'
                     : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
@@ -135,9 +143,9 @@ export const SafetyChecklistCard: React.FC<SafetyChecklistCardProps> = ({
               <button
                 type="button"
                 onClick={() => handleToggleConsent('unconfirmed')}
-                className={`px-2 py-1 rounded-lg text-[11px] font-semibold border transition ${
+                className={`px-2 py-1 rounded-lg text-[11px] font-semibold border transition cursor-pointer ${
                   consentStatus === 'unconfirmed'
-                    ? 'bg-amber-500 text-white border-amber-500'
+                    ? 'bg-amber-600 text-white border-amber-600'
                     : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                 }`}
               >
@@ -146,7 +154,7 @@ export const SafetyChecklistCard: React.FC<SafetyChecklistCardProps> = ({
               <button
                 type="button"
                 onClick={() => handleToggleConsent('not_required')}
-                className={`px-2 py-1 rounded-lg text-[11px] font-semibold border transition ${
+                className={`px-2 py-1 rounded-lg text-[11px] font-semibold border transition cursor-pointer ${
                   consentStatus === 'not_required'
                     ? 'bg-slate-600 text-white border-slate-600'
                     : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
@@ -185,11 +193,9 @@ export const SafetyChecklistCard: React.FC<SafetyChecklistCardProps> = ({
         )}
       </div>
 
-      {/* Accordion Content: 5 Check Items */}
       {isOpen && (
         <div className="pt-2 space-y-3 border-t border-slate-100">
           <div className="space-y-2 text-xs">
-            {/* 1. Meal */}
             <label className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 border border-slate-200/60 cursor-pointer transition">
               <input
                 type="checkbox"
@@ -208,7 +214,6 @@ export const SafetyChecklistCard: React.FC<SafetyChecklistCardProps> = ({
               </div>
             </label>
 
-            {/* 2. Sleep */}
             <label className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 border border-slate-200/60 cursor-pointer transition">
               <input
                 type="checkbox"
@@ -227,7 +232,6 @@ export const SafetyChecklistCard: React.FC<SafetyChecklistCardProps> = ({
               </div>
             </label>
 
-            {/* 3. Weight */}
             <label className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 border border-slate-200/60 cursor-pointer transition">
               <input
                 type="checkbox"
@@ -246,7 +250,6 @@ export const SafetyChecklistCard: React.FC<SafetyChecklistCardProps> = ({
               </div>
             </label>
 
-            {/* 4. Medication */}
             <label className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 border border-slate-200/60 cursor-pointer transition">
               <input
                 type="checkbox"
@@ -265,7 +268,6 @@ export const SafetyChecklistCard: React.FC<SafetyChecklistCardProps> = ({
               </div>
             </label>
 
-            {/* 5. Hydration */}
             <label className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 border border-slate-200/60 cursor-pointer transition">
               <input
                 type="checkbox"
@@ -287,27 +289,32 @@ export const SafetyChecklistCard: React.FC<SafetyChecklistCardProps> = ({
 
           <div className="pt-2 flex items-center justify-between gap-3">
             <span className="text-[11px] text-slate-500">
-              {isComplete ? '全5項目チェック完了' : '※該当する項目をすべてチェックしてください'}
+              {isComplete ? '全5項目チェック完了' : '※該当項目にチェックを入れて保存してください'}
             </span>
             <button
               type="button"
               onClick={handleSave}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs ${
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-98 ${
                 isComplete
                   ? 'bg-emerald-700 hover:bg-emerald-800 text-white'
-                  : 'bg-slate-900 hover:bg-slate-800 text-white'
+                  : 'bg-rose-700 hover:bg-rose-800 text-white'
               }`}
             >
-              <CheckCircle2 className="w-3.5 h-3.5" />
+              <CheckCircle2 className="w-4 h-4" />
               <span>{isComplete ? '確認完了として保存' : 'チェック内容を保存'}</span>
             </button>
           </div>
 
           {isSaved && (
-            <p className="text-xs text-emerald-700 font-semibold bg-emerald-50 p-2 rounded-xl border border-emerald-200 flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              安全確認チェックを保存・同期しました
-            </p>
+            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 flex items-center justify-between text-xs font-bold shadow-xs animate-in fade-in">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                <span>保存しました（端末およびクラウドへ同期完了）</span>
+              </div>
+              <span className="text-[10px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                保存完了
+              </span>
+            </div>
           )}
         </div>
       )}

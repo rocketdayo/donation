@@ -3,7 +3,7 @@ import { TicketRecord } from '../types';
 import { 
   parseCSVToTickets, 
   exportTicketsToCSV, 
-  exportMatching7ColCSV,
+  exportMatching7ColCSV, 
   fetchGoogleSheetCSV 
 } from '../utils/spreadsheet';
 import { saveSyncSettings, subscribeToSyncSettings } from '../firebase';
@@ -18,12 +18,12 @@ import {
   CheckCircle2, 
   Cloud, 
   Clock, 
-  Sparkles,
-  ShieldCheck,
-  CheckCheck,
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  ClipboardCheck
+  Sparkles, 
+  ShieldCheck, 
+  CheckCheck, 
+  ArrowDownToLine, 
+  ArrowUpFromLine, 
+  ClipboardCheck 
 } from 'lucide-react';
 
 interface SpreadsheetSyncModalProps {
@@ -46,9 +46,8 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [copied7Col, setCopied7Col] = useState(false);
   const [csvInput, setCsvInput] = useState<string>('');
-  const [showPasteArea, setShowPasteArea] = useState(true);
+  const [lastSyncTime, setLastSyncTime] = useState<string>('');
 
-  // Auto-fill clipboard or direct paste
   const handlePasteFromClipboard = async () => {
     try {
       const text = await navigator.clipboard.readText();
@@ -66,11 +65,8 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
         }
       }
     } catch {
-      // Fallback: user can paste manually into textarea
     }
-    setShowPasteArea(true);
   };
-  const [lastSyncTime, setLastSyncTime] = useState<string>('');
 
   useEffect(() => {
     const unsub = subscribeToSyncSettings((settings) => {
@@ -84,7 +80,6 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Fetch read data from Google Sheet (Initial loading)
   const handleFetchFromSheet = async () => {
     if (!sheetUrl.trim()) {
       setStatusMsg({ type: 'error', text: 'Google スプレッドシートのURLまたはCSVリンクを入力してください。' });
@@ -125,7 +120,6 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
     }
   };
 
-  // 7-column CSV (matching sheet: 番号, 時間, メアド, 名前, 属性, 状態, くじ引き結果)
   const handleDownload7ColCSV = () => {
     const csvContent = exportMatching7ColCSV(tickets);
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -145,7 +139,6 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
     setTimeout(() => setCopied7Col(false), 3500);
   };
 
-  // Full detailed CSV (11 columns)
   const handleDownloadFullCSV = () => {
     const csvContent = exportTicketsToCSV(tickets);
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -168,7 +161,6 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
       onImportTickets(parsed);
       setStatusMsg({ type: 'success', text: `貼り付けられたデータから ${parsed.length} 名を取り込みました。` });
       setCsvInput('');
-      setShowPasteArea(false);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '解析に失敗しました';
       setStatusMsg({ type: 'error', text: msg });
@@ -176,16 +168,15 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-800/40 p-4 backdrop-blur-xs">
       <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl border border-slate-200 flex flex-col max-h-[90vh] overflow-y-auto">
-        {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200">
               <FileSpreadsheet className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900">
+              <h3 className="text-base font-bold text-slate-800">
                 スプレッドシート名簿読込・結果出力
               </h3>
               <p className="text-xs text-slate-500">
@@ -194,14 +185,14 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition"
+            className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Operation Policy Notice */}
         <div className="mt-4 p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 space-y-1.5">
           <div className="flex items-center gap-1.5 font-bold text-slate-800">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
@@ -215,7 +206,6 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
           </p>
         </div>
 
-        {/* Status Message */}
         {statusMsg && (
           <div className={`mt-3 p-3 rounded-xl text-xs font-semibold flex items-start gap-2 ${
             statusMsg.type === 'success' 
@@ -227,7 +217,6 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
           </div>
         )}
 
-        {/* STEP 1: Import initial attendee roster */}
         <div className="mt-4 p-4 rounded-xl bg-emerald-50/60 border border-emerald-200 space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
@@ -255,9 +244,10 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
               className="flex-1 px-3.5 py-2 text-xs bg-white border border-emerald-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-emerald-600 font-mono"
             />
             <button
+              type="button"
               onClick={handleFetchFromSheet}
               disabled={loading}
-              className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs flex-shrink-0"
+              className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs flex-shrink-0 cursor-pointer"
             >
               {loading ? (
                 <>
@@ -278,14 +268,13 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
             <button
               type="button"
               onClick={() => setSheetUrl('https://rocketdayo.github.io/donation/')}
-              className="px-2 py-0.5 rounded-md bg-white border border-emerald-200 text-emerald-800 hover:bg-emerald-50 text-[11px] font-medium transition flex items-center gap-1"
+              className="px-2 py-0.5 rounded-md bg-white border border-emerald-200 text-emerald-800 hover:bg-emerald-50 text-[11px] font-medium transition flex items-center gap-1 cursor-pointer"
             >
               <Sparkles className="w-3 h-3 text-emerald-600" />
               rocketdayo.github.io/donation/
             </button>
           </div>
 
-          {/* Direct CSV / Spreadsheet Paste option */}
           <div className="pt-2 border-t border-emerald-200/60 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
@@ -295,7 +284,7 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
               <button
                 onClick={handlePasteFromClipboard}
                 type="button"
-                className="px-2.5 py-1 text-[11px] font-semibold text-emerald-800 bg-white hover:bg-emerald-100/80 border border-emerald-300 rounded-lg transition flex items-center gap-1 shadow-2xs"
+                className="px-2.5 py-1 text-[11px] font-semibold text-emerald-800 bg-white hover:bg-emerald-100/80 border border-emerald-300 rounded-lg transition flex items-center gap-1 shadow-2xs cursor-pointer"
               >
                 <ClipboardCheck className="w-3.5 h-3.5 text-emerald-600" />
                 クリップボードから貼付
@@ -319,8 +308,9 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
                   ※見出し行（番号・時間・名前など）の有無に関わらず読み込めます
                 </span>
                 <button
+                  type="button"
                   onClick={handlePasteImport}
-                  className="px-4 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+                  className="px-4 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-2xs cursor-pointer"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   貼り付けデータを反映
@@ -330,7 +320,6 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
           </div>
         </div>
 
-        {/* STEP 2: Export results to Sheet */}
         <div className="mt-4 p-4 rounded-xl bg-amber-50/70 border border-amber-200 space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
@@ -348,24 +337,27 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
 
           <div className="flex flex-wrap gap-2 pt-1">
             <button
+              type="button"
               onClick={handleCopy7ColCSV}
-              className="px-4 py-2.5 rounded-xl bg-amber-700 hover:bg-amber-800 active:scale-95 text-white text-xs font-bold transition flex items-center gap-2 shadow-xs"
+              className="px-4 py-2.5 rounded-xl bg-amber-700 hover:bg-amber-800 active:scale-95 text-white text-xs font-bold transition flex items-center gap-2 shadow-xs cursor-pointer"
             >
               {copied7Col ? <CheckCheck className="w-4 h-4 text-amber-200" /> : <Copy className="w-4 h-4" />}
               {copied7Col ? 'コピー完了！シートのA1セルに貼り付けてください' : 'スプレッドシート用7列をコピー (A~G列)'}
             </button>
 
             <button
+              type="button"
               onClick={handleDownload7ColCSV}
-              className="px-3.5 py-2.5 rounded-xl bg-white border border-amber-300 hover:bg-amber-100 text-amber-950 text-xs font-bold transition flex items-center gap-1.5"
+              className="px-3.5 py-2.5 rounded-xl bg-white border border-amber-300 hover:bg-amber-100 text-amber-950 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
               7列CSVを保存
             </button>
 
             <button
+              type="button"
               onClick={handleDownloadFullCSV}
-              className="px-3 py-2.5 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-medium transition flex items-center gap-1.5"
+              className="px-3 py-2.5 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-medium transition flex items-center gap-1.5 cursor-pointer"
               title="呼出時刻や完了時刻を含む全項目CSV"
             >
               <Download className="w-3.5 h-3.5 text-slate-500" />
@@ -374,15 +366,15 @@ export const SpreadsheetSyncModal: React.FC<SpreadsheetSyncModalProps> = ({
           </div>
         </div>
 
-        {/* Footer */}
         <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
             <Cloud className="w-3.5 h-3.5 text-blue-500" />
             <span>クラウド同期稼働中（受診者スマホ・全スタッフ端末へ即時反映）</span>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800 text-xs font-bold transition"
+            className="px-5 py-2 rounded-xl bg-rose-700 text-white hover:bg-rose-800 text-xs font-bold transition cursor-pointer"
           >
             閉じる
           </button>

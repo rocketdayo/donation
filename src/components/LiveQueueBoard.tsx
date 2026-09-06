@@ -4,25 +4,19 @@ import {
   QueueStatus 
 } from '../types';
 import { 
-  Volume2, 
   Megaphone, 
   Clock, 
   CheckCircle2, 
   Stethoscope, 
   Syringe, 
   Coffee, 
-  UserCheck, 
-  ChevronRight, 
   Send, 
-  Sparkles,
-  ArrowRight,
-  RotateCcw,
-  Undo2,
-  X,
-  PauseCircle,
-  ShieldCheck,
-  FileText,
-  AlertCircle
+  RotateCcw, 
+  Undo2, 
+  X, 
+  PauseCircle, 
+  FileText, 
+  AlertCircle 
 } from 'lucide-react';
 import { sounds } from '../utils/audio';
 import { NotificationManager } from '../utils/notifications';
@@ -41,12 +35,10 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
   const [selectedSlot, setSelectedSlot] = useState<string>('all');
   const [recentNotification, setRecentNotification] = useState<string | null>(null);
 
-  // Filter tickets by slot if selected
   const filteredTickets = selectedSlot === 'all' 
     ? tickets 
     : tickets.filter(t => t.timeSlot === selectedSlot);
 
-  // Group by stage
   const callingList = filteredTickets.filter(t => t.queueStatus === 'called');
   const waitingList = filteredTickets.filter(t => t.queueStatus === 'waiting');
   const onHoldList = filteredTickets.filter(t => t.queueStatus === 'on_hold' || t.queueStatus === 'absent');
@@ -55,13 +47,10 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
   const restingList = filteredTickets.filter(t => t.queueStatus === 'resting');
   const doneList = filteredTickets.filter(t => t.queueStatus === 'done');
 
-  // Estimate wait time (approx 5 mins per person)
   const estimatedWaitMinutes = Math.max(0, waitingList.length * 5);
 
-  // Unique time slots for filter
   const timeSlots = Array.from(new Set(tickets.map(t => t.timeSlot))).sort();
 
-  // Call a specific ticket (updates Firestore timestamp to trigger recipient device notifications & sound)
   const handleCallTicket = (ticket: TicketRecord) => {
     const timeStr = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
     const currentCallCount = ticket.callCount || 0;
@@ -91,57 +80,59 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
     setTimeout(() => setRecentNotification(null), 5000);
   };
 
-  // Call all currently called tickets at once
   const handleRebroadcastAllCalling = () => {
     if (callingList.length === 0) return;
     const timeStr = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
     const now = Date.now();
 
     callingList.forEach(ticket => {
+      const nextCallCount = (ticket.callCount || 1) + 1;
       onUpdateTicket(ticket.id, {
-        calledTimestamp: now,
         calledAt: timeStr,
-        callCount: (ticket.callCount || 0) + 1
+        calledTimestamp: now,
+        callCount: nextCallCount
       });
+
+      NotificationManager.sendPushNotification(
+        ticket.id,
+        ticket.email,
+        ticket.name,
+        `【再通知】献血バスへのお呼出（整理券 ${ticket.ticketNumber}番）`,
+        `${ticket.name} 様、受付の順番になっております。食堂前の献血バスまでお越しください。`
+      );
     });
 
     sounds.unlock();
     sounds.playCallingChime();
 
-    setRecentNotification(`お呼出中の受診者全員（${callingList.length}名）へ一括呼出通知を送信しました`);
+    setRecentNotification(`現在呼出中の受診者全員（${callingList.length}名）へ一括再呼出を送信しました`);
     setTimeout(() => setRecentNotification(null), 5000);
   };
 
-  // Call the next person in waiting line
   const handleCallNext = () => {
-    if (waitingList.length === 0) {
-      return;
-    }
+    if (waitingList.length === 0) return;
     const nextTicket = waitingList[0];
     handleCallTicket(nextTicket);
   };
 
-  // Track last action for immediate 1-click Undo
   const [lastAction, setLastAction] = useState<{
     ticket: TicketRecord;
     previousState: Partial<TicketRecord>;
     newStatusLabel: string;
-    timerId?: NodeJS.Timeout;
+    timerId: NodeJS.Timeout | null;
   } | null>(null);
 
-  // Status labels for friendly user feedback
   const statusLabels: Record<QueueStatus, string> = {
     waiting: '待機中',
-    called: '呼出中',
-    on_hold: '保留・不在',
-    interview: '問診中',
+    called: 'お呼出中',
+    on_hold: '一時保留',
+    interview: '問診・検査',
     donating: '採血中',
     resting: '休憩中',
-    done: '完了',
-    absent: '不在/見送り'
+    done: '本日の献血完了',
+    absent: '不在・キャンセル'
   };
 
-  // Change stage quick handler with Undo history
   const handleStageTransition = (ticket: TicketRecord, nextStatus: QueueStatus) => {
     const previousState: Partial<TicketRecord> = {
       queueStatus: ticket.queueStatus,
@@ -154,17 +145,15 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
     if (nextStatus === 'done') {
       updates.attendance = 'completed';
       updates.completedAt = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
-    } else {
+    } else if (nextStatus === 'absent') {
       updates.attendance = 'absent';
     }
     onUpdateTicket(ticket.id, updates);
 
-    // Clear previous timer if exists
     if (lastAction?.timerId) {
       clearTimeout(lastAction.timerId);
     }
 
-    // Set Undo bar for 8 seconds
     const timerId = setTimeout(() => {
       setLastAction(null);
     }, 8000);
@@ -177,7 +166,6 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
     });
   };
 
-  // 1-Click Undo handler
   const handleUndo = () => {
     if (!lastAction) return;
     if (lastAction.timerId) clearTimeout(lastAction.timerId);
@@ -189,22 +177,20 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Toast Notification */}
       {recentNotification && (
-        <div className="p-3 bg-slate-900 text-white rounded-xl shadow-md flex items-center justify-between text-xs font-medium">
+        <div className="p-3 bg-rose-800 text-white rounded-xl shadow-md flex items-center justify-between text-xs font-medium">
           <div className="flex items-center gap-2">
-            <Send className="w-4 h-4 text-slate-300" />
+            <Send className="w-4 h-4 text-rose-200" />
             <span>{recentNotification}</span>
           </div>
-          <span className="text-[10px] text-slate-400">通知送信完了</span>
+          <span className="text-[10px] text-rose-200">通知送信完了</span>
         </div>
       )}
 
-      {/* Control Bar */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-base font-bold text-slate-900">
+            <h2 className="text-base font-bold text-slate-800">
               進行管理ボード
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -213,7 +199,6 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
-            {/* Slot Filter */}
             <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700">
               <Clock className="w-3.5 h-3.5 text-slate-400" />
               <label htmlFor="slot-filter-select" className="text-slate-500 font-medium">時間帯:</label>
@@ -221,7 +206,7 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
                 id="slot-filter-select"
                 value={selectedSlot}
                 onChange={(e) => setSelectedSlot(e.target.value)}
-                className="bg-transparent text-slate-900 font-semibold focus:outline-hidden cursor-pointer"
+                className="bg-transparent text-slate-800 font-semibold focus:outline-hidden cursor-pointer"
               >
                 <option value="all">全時間帯 ({tickets.length}名)</option>
                 {timeSlots.map(slot => (
@@ -232,20 +217,19 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
               </select>
             </div>
 
-            {/* Estimated Wait */}
             <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-600">
               <span className="text-slate-400">予想待機:</span>
-              <span className="font-bold text-slate-900">約 {estimatedWaitMinutes} 分</span>
+              <span className="font-bold text-slate-800">約 {estimatedWaitMinutes} 分</span>
             </div>
 
-            {/* Call Next Button */}
             <button
               id="call-next-hero-btn"
+              type="button"
               onClick={handleCallNext}
               disabled={waitingList.length === 0}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-xs shadow-xs transition ${
                 waitingList.length > 0
-                  ? 'bg-rose-900 hover:bg-rose-950 text-white cursor-pointer active:scale-95'
+                  ? 'bg-rose-700 hover:bg-rose-800 text-white cursor-pointer active:scale-95'
                   : 'bg-slate-100 text-slate-400 cursor-not-allowed'
               }`}
             >
@@ -256,11 +240,10 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
         </div>
       </div>
 
-      {/* Currently Calling Box */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 mb-4 gap-2">
           <div className="flex items-center gap-2">
-            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+            <h3 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
               <Megaphone className="w-4 h-4 text-amber-600" />
               現在お呼出中 ({callingList.length}名)
             </h3>
@@ -268,8 +251,9 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
           <div className="flex items-center gap-2">
             {callingList.length > 0 && (
               <button
+                type="button"
                 onClick={handleRebroadcastAllCalling}
-                className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold transition flex items-center gap-1 shadow-2xs active:scale-95"
+                className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold transition flex items-center gap-1 shadow-2xs active:scale-95 cursor-pointer"
                 title="現在呼出中の全員のスマートフォンへ一括で通知を再送します"
               >
                 <Megaphone className="w-3 h-3 text-amber-700" />
@@ -298,7 +282,7 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
                     <button
                       type="button"
                       onClick={() => onOpenTicketDetail && onOpenTicketDetail(ticket)}
-                      className="font-mono font-black text-slate-900 text-base hover:text-rose-700 transition cursor-pointer"
+                      className="font-mono font-black text-slate-800 text-base hover:text-rose-700 transition cursor-pointer"
                     >
                       #{ticket.ticketNumber}
                     </button>
@@ -317,7 +301,7 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
                       <button
                         type="button"
                         onClick={() => onOpenTicketDetail && onOpenTicketDetail(ticket)}
-                        className="text-sm font-bold text-slate-900 hover:text-rose-700 text-left transition cursor-pointer"
+                        className="text-sm font-bold text-slate-800 hover:text-rose-700 text-left transition cursor-pointer"
                       >
                         {ticket.name}
                       </button>
@@ -334,7 +318,6 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
                       </p>
                     )}
 
-                    {/* Safety check & Consent indicators */}
                     <div className="flex flex-wrap gap-1 mt-2">
                       {ticket.safetyChecklist?.confirmedAt ? (
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
@@ -365,6 +348,7 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
 
                 <div className="mt-4 pt-3 border-t border-slate-200/80 flex items-center justify-between gap-2">
                   <button
+                    type="button"
                     onClick={() => handleCallTicket(ticket)}
                     className="px-2.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs transition flex items-center gap-1 shadow-xs active:scale-95 cursor-pointer"
                     title="スマホへ呼出通知・チャイムを送信"
@@ -375,6 +359,7 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
 
                   <div className="flex items-center gap-1.5">
                     <button
+                      type="button"
                       onClick={() => handleStageTransition(ticket, 'on_hold')}
                       className="px-2.5 py-1.5 rounded-lg bg-white border border-amber-300 hover:bg-amber-50 text-amber-900 text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
                       title="応答がないため一旦保留にし、次の受診者を呼べるようにします"
@@ -383,6 +368,7 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
                       <span>保留(不在)</span>
                     </button>
                     <button
+                      type="button"
                       onClick={() => handleStageTransition(ticket, 'interview')}
                       className="px-3 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold transition flex items-center gap-1 shadow-xs cursor-pointer"
                     >
@@ -397,11 +383,10 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
         )}
       </div>
 
-      {/* Absent & On-Hold (Skip Management) Section */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 mb-3 gap-2">
           <div className="flex items-center gap-2">
-            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+            <h3 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
               <PauseCircle className="w-4 h-4 text-amber-600" />
               不在・保留（スキップ管理）
             </h3>
@@ -432,7 +417,7 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
                     <button
                       type="button"
                       onClick={() => onOpenTicketDetail && onOpenTicketDetail(ticket)}
-                      className="font-mono font-black text-slate-900 text-sm hover:text-rose-700 transition cursor-pointer"
+                      className="font-mono font-black text-slate-800 text-sm hover:text-rose-700 transition cursor-pointer"
                     >
                       #{ticket.ticketNumber}
                     </button>
@@ -452,14 +437,13 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
                     <button
                       type="button"
                       onClick={() => onOpenTicketDetail && onOpenTicketDetail(ticket)}
-                      className="text-xs font-bold text-slate-900 hover:text-rose-700 text-left transition cursor-pointer"
+                      className="text-xs font-bold text-slate-800 hover:text-rose-700 text-left transition cursor-pointer"
                     >
                       {ticket.name}
                     </button>
                     <span className="text-[10px] text-slate-500">{ticket.timeSlot}</span>
                   </div>
 
-                  {/* Checklist & Consent badges */}
                   <div className="flex flex-wrap gap-1 mt-1.5">
                     {ticket.safetyChecklist?.confirmedAt ? (
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
@@ -483,7 +467,6 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
                   </div>
                 </div>
 
-                {/* Action buttons */}
                 <div className="pt-2 border-t border-amber-200/60 flex items-center justify-between gap-1.5">
                   <button
                     type="button"
@@ -522,13 +505,11 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
         )}
       </div>
 
-      {/* 4 Column Stages Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Stage 1: 待機列 */}
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col h-[460px]">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
-              <h3 className="font-bold text-slate-900 text-xs sm:text-sm">① 待機中</h3>
+              <h3 className="font-bold text-slate-800 text-xs sm:text-sm">① 待機中</h3>
               <p className="text-[10px] text-slate-400">受付待ちの受診者</p>
             </div>
             <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
@@ -540,22 +521,23 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
             {waitingList.length === 0 ? (
               <div className="text-center py-12 text-slate-400 text-xs">待機中の受診者はいません</div>
             ) : (
-              waitingList.map((ticket, idx) => (
+              waitingList.map((ticket) => (
                 <div 
                   key={ticket.id}
                   className="p-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white transition flex items-center justify-between"
                 >
                   <div>
                     <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className="font-bold text-xs text-slate-900">#{ticket.ticketNumber}</span>
+                      <span className="font-bold text-xs text-slate-800">#{ticket.ticketNumber}</span>
                       <span className="text-[10px] text-slate-400">{ticket.timeSlot}</span>
                     </div>
                     <div className="text-xs font-bold text-slate-800">{ticket.name}</div>
                   </div>
 
                   <button
+                    type="button"
                     onClick={() => handleCallTicket(ticket)}
-                    className="px-2.5 py-1.5 rounded-lg bg-rose-900 hover:bg-rose-950 text-white text-[11px] font-bold shadow-xs active:scale-95 transition flex items-center gap-1"
+                    className="px-2.5 py-1.5 rounded-lg bg-rose-700 hover:bg-rose-800 text-white text-[11px] font-bold shadow-xs active:scale-95 transition flex items-center gap-1 cursor-pointer"
                   >
                     <Megaphone className="w-3 h-3" />
                     呼出
@@ -566,11 +548,10 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
           </div>
         </div>
 
-        {/* Stage 2: 問診・検査 */}
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col h-[460px]">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
-              <h3 className="font-bold text-slate-900 text-xs sm:text-sm">② 問診・検査中</h3>
+              <h3 className="font-bold text-slate-800 text-xs sm:text-sm">② 問診・検査中</h3>
               <p className="text-[10px] text-slate-400">医師問診・事前検査</p>
             </div>
             <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200">
@@ -588,13 +569,14 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
                   className="p-3 rounded-xl border border-blue-200 bg-blue-50/40 transition flex items-center justify-between"
                 >
                   <div>
-                    <div className="font-bold text-xs text-slate-900">#{ticket.ticketNumber} {ticket.name}</div>
+                    <div className="font-bold text-xs text-slate-800">#{ticket.ticketNumber} {ticket.name}</div>
                     <div className="text-[10px] text-slate-500">{ticket.donationType || '400mL'}</div>
                   </div>
 
                   <button
+                    type="button"
                     onClick={() => handleStageTransition(ticket, 'donating')}
-                    className="px-2.5 py-1.5 rounded-lg bg-rose-800 hover:bg-rose-900 text-white text-[11px] font-bold shadow-xs transition flex items-center gap-1"
+                    className="px-2.5 py-1.5 rounded-lg bg-rose-700 hover:bg-rose-800 text-white text-[11px] font-bold shadow-xs transition flex items-center gap-1 cursor-pointer"
                   >
                     <Syringe className="w-3 h-3" />
                     採血へ
@@ -605,11 +587,10 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
           </div>
         </div>
 
-        {/* Stage 3: 採血中 */}
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col h-[460px]">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
-              <h3 className="font-bold text-slate-900 text-xs sm:text-sm">③ 採血中</h3>
+              <h3 className="font-bold text-slate-800 text-xs sm:text-sm">③ 採血中</h3>
               <p className="text-[10px] text-slate-400">ベッド・献血バス</p>
             </div>
             <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-800 border border-rose-200">
@@ -627,13 +608,14 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
                   className="p-3 rounded-xl border border-rose-200 bg-rose-50/40 transition flex items-center justify-between"
                 >
                   <div>
-                    <div className="font-bold text-xs text-slate-900">#{ticket.ticketNumber} {ticket.name}</div>
+                    <div className="font-bold text-xs text-slate-800">#{ticket.ticketNumber} {ticket.name}</div>
                     <div className="text-[10px] text-slate-500">{ticket.bloodType ? `${ticket.bloodType}型` : ''} ({ticket.donationType || '400mL'})</div>
                   </div>
 
                   <button
+                    type="button"
                     onClick={() => handleStageTransition(ticket, 'resting')}
-                    className="px-2.5 py-1.5 rounded-lg bg-teal-700 hover:bg-teal-800 text-white text-[11px] font-bold shadow-xs transition flex items-center gap-1"
+                    className="px-2.5 py-1.5 rounded-lg bg-teal-700 hover:bg-teal-800 text-white text-[11px] font-bold shadow-xs transition flex items-center gap-1 cursor-pointer"
                   >
                     <Coffee className="w-3 h-3" />
                     休憩へ
@@ -644,11 +626,10 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
           </div>
         </div>
 
-        {/* Stage 4: 休憩・完了 */}
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col h-[460px]">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
-              <h3 className="font-bold text-slate-900 text-xs sm:text-sm">④ 休憩 & 完了</h3>
+              <h3 className="font-bold text-slate-800 text-xs sm:text-sm">④ 休憩 & 完了</h3>
               <p className="text-[10px] text-slate-400">水分補給・終了</p>
             </div>
             <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
@@ -657,20 +638,20 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
           </div>
 
           <div className="mt-3 flex-1 overflow-y-auto space-y-2 pr-1">
-            {/* Resting list */}
             {restingList.map((ticket) => (
               <div 
                 key={ticket.id}
                 className="p-3 rounded-xl border border-teal-200 bg-teal-50/40 transition flex items-center justify-between"
               >
                 <div>
-                  <div className="font-bold text-xs text-slate-900">#{ticket.ticketNumber} {ticket.name}</div>
+                  <div className="font-bold text-xs text-slate-800">#{ticket.ticketNumber} {ticket.name}</div>
                   <div className="text-[10px] text-teal-800 font-medium">水分補給中</div>
                 </div>
 
                 <button
+                  type="button"
                   onClick={() => handleStageTransition(ticket, 'done')}
-                  className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-[11px] font-bold shadow-xs transition flex items-center gap-1"
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-800 text-white text-[11px] font-bold shadow-xs transition flex items-center gap-1 cursor-pointer"
                 >
                   <CheckCircle2 className="w-3 h-3" />
                   完了
@@ -678,7 +659,6 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
               </div>
             ))}
 
-            {/* Done list */}
             {doneList.map((ticket) => (
               <div 
                 key={ticket.id}
@@ -691,8 +671,9 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className="text-[10px] text-slate-400">{ticket.completedAt || '完了'}</span>
                   <button
+                    type="button"
                     onClick={() => handleStageTransition(ticket, 'waiting')}
-                    className="px-2 py-1 rounded-md text-[10px] text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-300 transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                    className="px-2 py-1 rounded-md text-[10px] text-slate-600 hover:text-slate-800 bg-white hover:bg-slate-100 border border-slate-300 transition flex items-center gap-1 cursor-pointer shadow-2xs"
                     title="誤って完了にした場合、待機中に戻せます"
                   >
                     <RotateCcw className="w-2.5 h-2.5" />
@@ -709,9 +690,8 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
         </div>
       </div>
 
-      {/* Floating Undo Bar for Accidental Status Changes */}
       {lastAction && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl border border-slate-700/80 transition-all duration-300 animate-in fade-in slide-in-from-bottom-3">
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-slate-800 text-white px-4 py-3 rounded-2xl shadow-xl border border-slate-700 transition-all duration-300 animate-in fade-in slide-in-from-bottom-3">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-xs font-medium">
@@ -720,8 +700,9 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
           </div>
 
           <button
+            type="button"
             onClick={handleUndo}
-            className="px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer transition shadow-xs"
+            className="px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer transition shadow-xs"
             title="直前の変更を取り消して元の状態に戻します"
           >
             <Undo2 className="w-3.5 h-3.5" />
@@ -729,8 +710,9 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
           </button>
 
           <button
+            type="button"
             onClick={() => setLastAction(null)}
-            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition cursor-pointer"
+            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-700 transition cursor-pointer"
             title="閉じる"
           >
             <X className="w-4 h-4" />

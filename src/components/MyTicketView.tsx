@@ -1,36 +1,26 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { TicketRecord } from '../types';
 import { 
-  Search, 
   Clock, 
   Bell, 
   BellRing, 
   CheckCircle2, 
   AlertCircle, 
-  User, 
   Mail, 
-  ChevronRight,
   Send, 
-  Sparkles,
-  QrCode,
-  Smartphone,
-  Share,
-  MoreVertical,
-  ChevronDown,
-  ChevronUp,
-  Download,
-  PlusSquare,
-  Info,
-  LogOut,
-  ArrowRight,
-  Check,
-  MapPin,
-  Wifi,
-  WifiOff,
-  RefreshCw,
-  PauseCircle,
-  ShieldCheck,
-  FileText
+  Smartphone, 
+  Share, 
+  Download, 
+  PlusSquare, 
+  Info, 
+  LogOut, 
+  ArrowRight, 
+  Check, 
+  MapPin, 
+  Wifi, 
+  WifiOff, 
+  RefreshCw, 
+  FileText 
 } from 'lucide-react';
 import { NotificationManager } from '../utils/notifications';
 import { sounds } from '../utils/audio';
@@ -59,7 +49,6 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
   tickets,
   notificationPermission,
   onReqNotifications,
-  onSwitchToAdmin,
   isLoading = false,
   onUpdateTicket,
   isOnline = true,
@@ -67,25 +56,20 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
   isResyncing = false,
   onManualResync,
 }) => {
-  // Saved or verified user email
   const [userEmail, setUserEmail] = useState<string>(() => {
     if (typeof window === 'undefined') return '';
-    // 1. Check URL query params
     const params = new URLSearchParams(window.location.search);
     const queryEmail = params.get('email') || params.get('mail');
     if (queryEmail) return queryEmail.trim().toLowerCase();
     
-    // 2. Check localStorage
     const stored = localStorage.getItem(STORAGE_EMAIL_KEY);
     if (stored) return stored.trim().toLowerCase();
 
-    // 3. Check Firebase Auth user if available
     if (auth.currentUser?.email) return auth.currentUser.email.trim().toLowerCase();
 
     return '';
   });
 
-  // Input state for email verification form
   const [inputEmail, setInputEmail] = useState('');
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -95,7 +79,6 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isStandalone, setIsStandalone] = useState(false);
 
-  // Sync auth state if signed in
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       if (user?.email && !userEmail) {
@@ -107,7 +90,6 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
     return () => unsubscribe();
   }, [userEmail]);
 
-  // PWA standalone and beforeinstallprompt detection
   useEffect(() => {
     if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
       setIsStandalone(true);
@@ -141,13 +123,11 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
     }
   };
 
-  // Find ticket matching the verified user email or student ID
   const currentTicket = useMemo(() => {
     if (!userEmail) return null;
     return findMatchingTicket(userEmail, tickets).ticket;
   }, [tickets, userEmail]);
 
-  // Track last alerted ticket call event to avoid infinite looping while alerting on every real call/re-call
   const lastAlertRef = React.useRef<{ id: string; status: string; timestamp: number }>({
     id: '',
     status: '',
@@ -166,7 +146,6 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
     );
     const hasStatusTransition = isCalled && prev.status !== 'called';
 
-    // When newly called or re-broadcasted from admin
     if (isCalled && (!isSameTicket || hasStatusTransition || hasNewTimestamp)) {
       lastAlertRef.current = {
         id: currentTicket.id,
@@ -174,7 +153,6 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
         timestamp: currentTicket.calledTimestamp || Date.now()
       };
 
-      // Trigger full call alerts: Sound Chime + Speech Announcement + Phone Vibration + System Notification Bar
       NotificationManager.sendCallNotification(currentTicket);
     } else {
       lastAlertRef.current = {
@@ -185,7 +163,6 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
     }
   }, [currentTicket?.id, currentTicket?.queueStatus, currentTicket?.calledTimestamp]);
 
-  // Handle email lookup / verification submission with intelligent Student ID support
   const handleVerifyEmail = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setVerifyError(null);
@@ -199,7 +176,6 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
     setTimeout(() => {
       const match = findMatchingTicket(target, tickets);
       if (match.ticket) {
-        // Save the canonical email of matched ticket
         const canonicalEmail = match.ticket.email.trim().toLowerCase();
         setUserEmail(canonicalEmail);
         localStorage.setItem(STORAGE_EMAIL_KEY, canonicalEmail);
@@ -211,7 +187,6 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
     }, 250);
   };
 
-  // Switch or clear email verification
   const handleResetEmail = () => {
     setUserEmail('');
     localStorage.removeItem(STORAGE_EMAIL_KEY);
@@ -219,16 +194,13 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
     setVerifyError(null);
   };
 
-  // Currently called tickets
   const currentlyCalled = tickets.filter(t => t.queueStatus === 'called');
   
-  // Waiting queue calculation
   const waitingTickets = tickets.filter(t => t.queueStatus === 'waiting');
   const myQueuePosition = currentTicket && currentTicket.queueStatus === 'waiting'
     ? waitingTickets.findIndex(t => t.id === currentTicket.id) + 1
     : 0;
 
-  // Status visual mapping
   const getStatusDisplay = (ticket: TicketRecord) => {
     switch (ticket.queueStatus) {
       case 'called':
@@ -236,9 +208,9 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
           title: 'お呼出中です',
           description: '食堂前の献血バスへお越しください',
           badge: '呼出中',
-          bgClass: 'bg-amber-500 text-slate-950',
-          borderClass: 'border-amber-400',
-          cardBg: 'bg-amber-50/50'
+          bgClass: 'bg-amber-500 text-white',
+          borderClass: 'border-amber-300',
+          cardBg: 'bg-amber-50/70'
         };
       case 'interview':
         return {
@@ -246,8 +218,8 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
           description: '医師による問診およびヘモグロビン検査を行っています',
           badge: '問診中',
           bgClass: 'bg-blue-600 text-white',
-          borderClass: 'border-blue-400',
-          cardBg: 'bg-blue-50/40'
+          borderClass: 'border-blue-300',
+          cardBg: 'bg-blue-50/60'
         };
       case 'donating':
         return {
@@ -255,8 +227,8 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
           description: '献血バスまたはベッドにて採血を行っています',
           badge: '採血中',
           bgClass: 'bg-rose-700 text-white',
-          borderClass: 'border-rose-400',
-          cardBg: 'bg-rose-50/40'
+          borderClass: 'border-rose-300',
+          cardBg: 'bg-rose-50/60'
         };
       case 'resting':
         return {
@@ -264,8 +236,8 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
           description: '採血後の体調安定のため、十分な水分補給とご休憩をお願いします',
           badge: '休憩中',
           bgClass: 'bg-teal-600 text-white',
-          borderClass: 'border-teal-400',
-          cardBg: 'bg-teal-50/40'
+          borderClass: 'border-teal-300',
+          cardBg: 'bg-teal-50/60'
         };
       case 'on_hold':
         return {
@@ -273,7 +245,7 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
           description: '呼出時にご不在だったため一時保留となっています。バスへ到着されましたらスタッフにお声がけください',
           badge: '保留中',
           bgClass: 'bg-amber-600 text-white',
-          borderClass: 'border-amber-400',
+          borderClass: 'border-amber-300',
           cardBg: 'bg-amber-50/70'
         };
       case 'done':
@@ -281,7 +253,7 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
           title: '本日の献血完了',
           description: '温かいご協力ありがとうございました',
           badge: '完了',
-          bgClass: 'bg-slate-800 text-white',
+          bgClass: 'bg-slate-700 text-white',
           borderClass: 'border-slate-300',
           cardBg: 'bg-slate-50'
         };
@@ -294,7 +266,7 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
           borderClass: 'border-slate-200',
           cardBg: 'bg-slate-50'
         };
-      default: // waiting
+      default:
         return {
           title: myQueuePosition > 0 ? `順番待ち中（あと約 ${myQueuePosition} 番目）` : '待機中',
           description: 'お呼び出しまで待機ロビーにてお待ちください',
@@ -316,7 +288,6 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
     setTimeout(() => setNotifSent(false), 4000);
   };
 
-  // If initial tickets or user's ticket is loading from cloud, display clear loading screen
   if (isLoading && (!currentTicket || tickets.length === 0)) {
     return (
       <div className="max-w-xl mx-auto space-y-5 px-1 py-2">
@@ -330,15 +301,14 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
 
   return (
     <div className="max-w-xl mx-auto space-y-5 px-1 py-2">
-      {/* 1. IF NO MATCHED TICKET: SHOW EMAIL VERIFICATION FORM (メアド照合欄) */}
       {!currentTicket ? (
         <div className="space-y-4">
           <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 shadow-xs space-y-5">
             <div className="text-center space-y-1.5">
-              <div className="inline-flex p-3 rounded-2xl bg-slate-100 text-slate-800 border border-slate-200 mb-1">
-                <Mail className="w-6 h-6 text-slate-700" />
+              <div className="inline-flex p-3 rounded-2xl bg-rose-50 text-rose-800 border border-rose-200 mb-1">
+                <Mail className="w-6 h-6 text-rose-700" />
               </div>
-              <h2 className="text-lg sm:text-xl font-bold text-slate-900">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-800">
                 整理券の照会・表示
               </h2>
               <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
@@ -346,7 +316,6 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
               </p>
             </div>
 
-            {/* Form */}
             <form onSubmit={handleVerifyEmail} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
@@ -365,7 +334,7 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
                       if (verifyError) setVerifyError(null);
                     }}
                     placeholder="sidを入力 または メールアドレスを入力"
-                    className="w-full pl-9 pr-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition"
+                    className="w-full pl-9 pr-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-rose-700/10 focus:border-rose-700 transition"
                   />
                 </div>
               </div>
@@ -380,7 +349,7 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
               <button
                 type="submit"
                 disabled={isVerifying}
-                className="w-full py-3 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm transition flex items-center justify-center gap-2 shadow-xs cursor-pointer disabled:opacity-50"
+                className="w-full py-3 px-4 rounded-2xl bg-rose-700 hover:bg-rose-800 text-white font-bold text-sm transition flex items-center justify-center gap-2 shadow-xs cursor-pointer disabled:opacity-50"
               >
                 {isVerifying ? (
                   <span>照合中...</span>
@@ -394,14 +363,13 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
             </form>
           </div>
 
-          {/* Standalone Install Promotion Card */}
           <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-2xl bg-slate-100 text-slate-700 flex-shrink-0">
-                <Smartphone className="w-5 h-5 text-slate-700" />
+              <div className="p-2.5 rounded-2xl bg-rose-50 text-rose-700 flex-shrink-0">
+                <Smartphone className="w-5 h-5 text-rose-700" />
               </div>
               <div>
-                <h4 className="text-xs font-bold text-slate-900">
+                <h4 className="text-xs font-bold text-slate-800">
                   ホーム画面に追加してアプリ化
                 </h4>
                 <p className="text-[11px] text-slate-500">
@@ -410,32 +378,33 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
               </div>
             </div>
             <button
+              type="button"
               onClick={handleInstallClick}
-              className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs flex-shrink-0"
+              className="px-3.5 py-2 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs flex-shrink-0 cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
               インストール
             </button>
           </div>
 
-          {/* Guide Modal / Dropdown if toggled */}
           {showPwaGuide && (
             <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-3 text-xs">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                <h4 className="font-bold text-slate-900 flex items-center gap-1.5">
+                <h4 className="font-bold text-slate-800 flex items-center gap-1.5">
                   <Smartphone className="w-4 h-4 text-slate-700" />
                   ホーム画面への追加手順（PWA）
                 </h4>
                 <button
+                  type="button"
                   onClick={() => setShowPwaGuide(false)}
-                  className="text-xs text-slate-400 hover:text-slate-700"
+                  className="text-xs text-slate-400 hover:text-slate-700 cursor-pointer"
                 >
                   閉じる
                 </button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/90 space-y-2">
-                  <div className="font-bold text-slate-900 text-xs">
+                  <div className="font-bold text-slate-800 text-xs">
                     iPhone / iPad (Safari)
                   </div>
                   <ol className="space-y-1 text-[11px] text-slate-600 pl-4 list-decimal leading-relaxed">
@@ -445,7 +414,7 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
                   </ol>
                 </div>
                 <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/90 space-y-2">
-                  <div className="font-bold text-slate-900 text-xs">
+                  <div className="font-bold text-slate-800 text-xs">
                     Android (Chrome)
                   </div>
                   <ol className="space-y-1 text-[11px] text-slate-600 pl-4 list-decimal leading-relaxed">
@@ -458,13 +427,10 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
             </div>
           )}
 
-          {/* Donation Eligibility & Guidelines (Poster Information) */}
           <DonationGuidelines defaultExpanded={true} />
         </div>
       ) : (
-        /* 2. MATCHED TICKET: DISPLAY USER'S PERSONAL TICKET ONLY */
         <>
-          {/* Active Email Bar with Option to Change */}
           <div className="bg-white border border-slate-200/90 rounded-2xl px-4 py-2.5 shadow-xs flex items-center justify-between gap-2 text-xs">
             <div className="flex items-center gap-2 min-w-0">
               <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
@@ -474,8 +440,9 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
               </span>
             </div>
             <button
+              type="button"
               onClick={handleResetEmail}
-              className="px-2.5 py-1 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 text-[11px] font-medium transition flex items-center gap-1 flex-shrink-0"
+              className="px-2.5 py-1 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 text-[11px] font-medium transition flex items-center gap-1 flex-shrink-0 cursor-pointer"
               title="別のアドレスで照合する"
             >
               <LogOut className="w-3 h-3" />
@@ -483,7 +450,6 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
             </button>
           </div>
 
-          {/* Offline / Realtime Sync Status Bar */}
           <div className="flex items-center justify-between px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-xs shadow-2xs">
             <div className="flex items-center gap-2">
               {isOnline ? (
@@ -519,21 +485,18 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
             )}
           </div>
 
-          {/* Main Elegantly Designed Ticket Card */}
           <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
-            {/* Upper Premium Header */}
-            <div className="bg-slate-900 text-white p-6 relative">
+            <div className="bg-rose-800 text-white p-6 relative">
               <div className="flex items-start justify-between">
                 <div>
-                  <span className="text-[10px] font-semibold text-slate-400 tracking-wider uppercase">
+                  <span className="text-[10px] font-semibold text-rose-200 tracking-wider uppercase">
                     Blood Donation Ticket
                   </span>
-                  <div className="text-xs text-slate-300 mt-0.5">
+                  <div className="text-xs text-rose-100 mt-0.5 font-medium">
                     献血整理券
                   </div>
                 </div>
 
-                {/* Status Badge */}
                 {statusInfo && (
                   <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide shadow-xs ${statusInfo.bgClass}`}>
                     {statusInfo.badge}
@@ -541,22 +504,19 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
                 )}
               </div>
 
-              {/* Huge Clean Ticket Number */}
               <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-slate-400 text-sm font-medium">整理券番号</span>
+                <span className="text-rose-200 text-sm font-medium">整理券番号</span>
                 <span className="text-5xl sm:text-6xl font-black tracking-tight font-mono text-white">
                   #{currentTicket.ticketNumber}
                 </span>
               </div>
             </div>
 
-            {/* Middle Attendee Info */}
             <div className="p-6 space-y-4">
-              {/* Name & Time */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4 border-b border-slate-100">
                 <div>
                   <div className="text-xs text-slate-400 font-medium">お名前</div>
-                  <div className="text-xl font-bold text-slate-900 mt-0.5 flex items-center gap-2">
+                  <div className="text-xl font-bold text-slate-800 mt-0.5 flex items-center gap-2">
                     <span>{currentTicket.name}</span>
                     <span className="text-xs font-normal text-slate-500">様</span>
                     {currentTicket.attribute && (
@@ -584,11 +544,10 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
                 </div>
               </div>
 
-              {/* Progress & Current Call Status Box */}
               {statusInfo && (
                 <div className={`p-4 rounded-2xl border ${statusInfo.cardBg} ${statusInfo.borderClass} space-y-2`}>
                   <div className="flex items-center justify-between">
-                    <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-rose-700" />
                       現在の進行状況
                     </div>
@@ -600,7 +559,6 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
                     {statusInfo.description}
                   </p>
 
-                  {/* Destination reminder when called */}
                   {currentTicket.queueStatus === 'called' && (
                     <div className="p-2.5 bg-amber-100/90 border border-amber-300 rounded-xl flex items-center gap-2 text-amber-950 font-bold text-xs animate-pulse">
                       <MapPin className="w-4 h-4 text-amber-700 flex-shrink-0" />
@@ -608,10 +566,9 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
                     </div>
                   )}
 
-                  {/* Live Call Reference */}
                   <div className="mt-3 pt-2.5 border-t border-slate-200/60 flex items-center justify-between text-xs">
                     <span className="text-slate-500">現在のお呼出番号:</span>
-                    <span className="font-bold text-slate-900">
+                    <span className="font-bold text-slate-800">
                       {currentlyCalled.length > 0 
                         ? currentlyCalled.map(c => `#${c.ticketNumber}`).join(', ')
                         : '現在呼出なし'}
@@ -621,13 +578,12 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
                   {currentTicket.queueStatus === 'waiting' && myQueuePosition > 0 && (
                     <div className="flex items-center justify-between text-xs pt-1">
                       <span className="text-slate-500">あなたの前の待機人数:</span>
-                      <span className="font-bold text-slate-900">あと {myQueuePosition - 1} 名</span>
+                      <span className="font-bold text-slate-800">あと {myQueuePosition - 1} 名</span>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Optional Donation Type if configured */}
               {(currentTicket.bloodType || currentTicket.donationType) && (
                 <div className="flex items-center gap-3 text-xs text-slate-500 pt-1">
                   {currentTicket.bloodType && (
@@ -641,8 +597,7 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
             </div>
           </div>
 
-          {/* Parental Consent Notice if Student / Minor */}
-          {(currentTicket.isStudent || currentTicket.attribute === '学生' || currentTicket.parentalConsentStatus) && (
+          {(currentTicket.isStudent || currentTicket.attribute === '学生' || currentTicket.attribute === '生徒' || currentTicket.parentalConsentStatus) && (
             <div className="p-4 rounded-3xl bg-amber-50/70 border border-amber-200 shadow-xs space-y-2 text-xs text-amber-950">
               <div className="flex items-center justify-between">
                 <div className="font-bold flex items-center gap-1.5 text-amber-900">
@@ -666,25 +621,22 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
             </div>
           )}
 
-          {/* Donor Safety & Pre-check Checklist Card */}
           {onUpdateTicket && (
             <SafetyChecklistCard
               ticket={currentTicket}
+              onUpdateTicket={onUpdateTicket}
               onSave={(checklist) => onUpdateTicket(currentTicket.id, { safetyChecklist: checklist })}
-              mode="donor"
             />
           )}
 
-          {/* Notification Permission & PWA Installation Card */}
           <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-4">
-            {/* Header / Push Notification Status */}
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-2xl bg-slate-100 text-slate-700 border border-slate-200 flex-shrink-0">
-                  <Bell className="w-5 h-5 text-slate-700" />
+                <div className="p-2.5 rounded-2xl bg-rose-50 text-rose-700 border border-rose-200 flex-shrink-0">
+                  <Bell className="w-5 h-5 text-rose-700" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-slate-900">
+                  <h4 className="text-sm font-bold text-slate-800">
                     呼出通知（プッシュ通知）
                   </h4>
                   <p className="text-xs text-slate-500 mt-0.5">
@@ -695,8 +647,9 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
 
               {notificationPermission !== 'granted' ? (
                 <button
+                  type="button"
                   onClick={onReqNotifications}
-                  className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition flex items-center gap-1.5 shadow-xs flex-shrink-0"
+                  className="px-3.5 py-2 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-xs font-semibold transition flex items-center gap-1.5 shadow-xs flex-shrink-0 cursor-pointer"
                 >
                   <BellRing className="w-3.5 h-3.5" />
                   通知を許可
@@ -709,12 +662,12 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
               )}
             </div>
 
-            {/* Test Notification Row */}
             <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">
               <span className="text-slate-500">呼出音・通知のテスト:</span>
               <button
+                type="button"
                 onClick={handleTestPush}
-                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium transition flex items-center gap-1.5"
+                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium transition flex items-center gap-1.5 cursor-pointer"
               >
                 <Send className="w-3.5 h-3.5 text-slate-600" />
                 テスト通知
@@ -728,7 +681,6 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
               </p>
             )}
 
-            {/* Android Suspicious Notification Filter notice */}
             <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3 text-[11px] text-slate-600 space-y-1">
               <div className="font-bold text-slate-700 flex items-center gap-1.5">
                 <Info className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
@@ -739,16 +691,15 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
               </p>
             </div>
 
-            {/* PWA / Add to Home Screen Section */}
             <div className="pt-3 border-t border-slate-100 space-y-3">
               <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-2.5">
                     <div className="p-2 rounded-xl bg-white border border-slate-200 text-slate-700 shadow-2xs">
-                      <Smartphone className="w-4 h-4 text-rose-500" />
+                      <Smartphone className="w-4 h-4 text-rose-600" />
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                         <span>ホーム画面に追加（アプリ化・PWA）</span>
                         {isStandalone && (
                           <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">
@@ -762,24 +713,22 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
                     </div>
                   </div>
 
-                  {/* PROMINENT INSTALL BUTTON */}
                   <button
+                    type="button"
                     onClick={handleInstallClick}
-                    className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs flex-shrink-0 cursor-pointer"
+                    className="px-3.5 py-2 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-xs flex-shrink-0 cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" />
                     <span>インストール</span>
                   </button>
                 </div>
 
-                {/* Step-by-Step PWA Installation Guide (Collapsible or Prompted) */}
                 {showPwaGuide && (
                   <div className="pt-3 border-t border-slate-200/70 space-y-3 text-xs text-slate-600">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {/* iOS / Safari Guide */}
                       <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 space-y-2">
-                        <div className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
-                          <span className="w-2 h-2 rounded-full bg-slate-900" />
+                        <div className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
+                          <span className="w-2 h-2 rounded-full bg-slate-700" />
                           iPhone / iPad (Safari)
                         </div>
                         <ol className="space-y-1.5 text-[11px] text-slate-600 pl-4 list-decimal leading-relaxed">
@@ -795,9 +744,8 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
                         </ol>
                       </div>
 
-                      {/* Android / Chrome Guide */}
                       <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 space-y-2">
-                        <div className="font-bold text-slate-900 flex items-center gap-1.5 text-xs">
+                        <div className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
                           <span className="w-2 h-2 rounded-full bg-emerald-600" />
                           Android (Chrome)
                         </div>
@@ -827,10 +775,8 @@ export const MyTicketView: React.FC<MyTicketViewProps> = ({
             </div>
           </div>
 
-          {/* Donation Guidelines & Requirements (Poster Information) */}
           <DonationGuidelines defaultExpanded={false} />
 
-          {/* Pre-donation advice */}
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-slate-800 space-y-1.5">
             <div className="font-bold flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-rose-600" />

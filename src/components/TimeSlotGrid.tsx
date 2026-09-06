@@ -13,7 +13,6 @@ export const TimeSlotGrid: React.FC<TimeSlotGridProps> = ({
 }) => {
   const SLOT_CAPACITY = 8;
 
-  // Extract all unique slots from tickets or default TIME_SLOTS (normalized to 30-min windows)
   const allUniqueSlots = Array.from(
     new Set([
       ...tickets.map(t => normalizeTimeSlot(t.timeSlot).slot).filter(Boolean),
@@ -41,11 +40,10 @@ export const TimeSlotGrid: React.FC<TimeSlotGridProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Header Info */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="text-base font-bold text-slate-900">
+            <h2 className="text-base font-bold text-slate-800">
               時間帯別 予約状況一覧
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -67,7 +65,6 @@ export const TimeSlotGrid: React.FC<TimeSlotGridProps> = ({
         </div>
       </div>
 
-      {/* Grid of Time Slots */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {slotStats.map((item) => {
           const isFull = item.available === 0;
@@ -85,11 +82,10 @@ export const TimeSlotGrid: React.FC<TimeSlotGridProps> = ({
               }`}
             >
               <div>
-                {/* Header */}
                 <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
                   <div className="flex items-center gap-1.5">
                     <Clock className="w-4 h-4 text-slate-500" />
-                    <span className="font-bold text-sm text-slate-900">{item.slot}</span>
+                    <span className="font-bold text-sm text-slate-800">{item.slot}</span>
                   </div>
                   <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
                     isFull
@@ -102,7 +98,6 @@ export const TimeSlotGrid: React.FC<TimeSlotGridProps> = ({
                   </span>
                 </div>
 
-                {/* Progress Bar */}
                 <div className="mt-3">
                   <div className="flex items-center justify-between text-xs mb-1">
                     <span className="text-slate-500">予約 ({item.reserved}/{SLOT_CAPACITY}名)</span>
@@ -122,7 +117,6 @@ export const TimeSlotGrid: React.FC<TimeSlotGridProps> = ({
                   </div>
                 </div>
 
-                {/* Breakdown Badges */}
                 <div className="grid grid-cols-3 gap-1.5 mt-3 text-center text-[11px]">
                   <div className="p-1.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-900">
                     <div className="text-[10px] text-rose-600 font-medium">出席 (完了)</div>
@@ -138,7 +132,6 @@ export const TimeSlotGrid: React.FC<TimeSlotGridProps> = ({
                   </div>
                 </div>
 
-                {/* Attendee Name Tags */}
                 {item.tickets.length > 0 && (
                   <div className="mt-3 pt-2.5 border-t border-slate-100 flex flex-wrap gap-1 max-h-20 overflow-y-auto">
                     {item.tickets.map(t => {
@@ -163,7 +156,6 @@ export const TimeSlotGrid: React.FC<TimeSlotGridProps> = ({
                 )}
               </div>
 
-              {/* Bottom Info */}
               <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
                 <span>予約合計: {item.tickets.length}名</span>
                 <span>定員: {SLOT_CAPACITY}名</span>
