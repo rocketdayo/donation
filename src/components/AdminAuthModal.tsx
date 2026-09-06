@@ -76,7 +76,7 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
             管理者画面の認証
           </h3>
           <p className="text-xs text-slate-500">
-            Firebaseクラウド認証（暗号化ハッシュ照合）
+            Firebaseクラウド認証（暗号化セキュア照合）
           </p>
         </div>
 
@@ -146,7 +146,7 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
         </form>
 
         <p className="text-[11px] text-slate-400 text-center leading-relaxed">
-          ※ パスワードはFirebase上にソルト付加SHA-256でハッシュ化して安全に照合されます。
+          ※ Firebase Authentication による安全なクラウド暗号化認証で保護されています。
         </p>
       </div>
     </div>

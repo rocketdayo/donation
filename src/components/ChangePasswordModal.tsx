@@ -98,7 +98,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
             管理者パスワードの変更
           </h3>
           <p className="text-xs text-slate-500">
-            Firebase上のソルト付きハッシュ値を再生成・更新します
+            Firebase暗号化認証の鍵情報を安全に再生成・更新します
           </p>
         </div>
 

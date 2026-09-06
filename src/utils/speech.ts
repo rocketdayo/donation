@@ -1,8 +1,3 @@
-/**
- * Speech synthesis has been disabled per user request.
- * Functions remain as no-op stubs to avoid breaking any callers.
- */
-
 export class VoiceAnnouncer {
   public static enabled: boolean = false;
 
@@ -11,11 +6,10 @@ export class VoiceAnnouncer {
   }
 
   public static speak(_text: string) {
-    // Disabled
   }
 
   public static announceCall(_ticketNumber: number, _name: string) {
-    // Disabled
   }
 }
+
 

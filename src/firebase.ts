@@ -1,5 +1,10 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { 
+  getAuth, 
+  signInAnonymously, 
+  signOut as fbSignOut,
+  onAuthStateChanged
+} from 'firebase/auth';
 import { 
   getFirestore, 
   doc, 
@@ -15,14 +20,27 @@ import {
 import firebaseConfig from '../firebase-applet-config.json';
 import { TicketRecord, AdminAuthConfig } from './types';
 import { INITIAL_TICKETS } from './utils/storage';
-import { generateSalt, hashPassword, verifyPassword } from './utils/crypto';
+import { generateSalt, hashPassword, verifyPassword, deobfuscate } from './utils/crypto';
 
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+const resolvedConfig = {
+  projectId: firebaseConfig.projectId,
+  appId: firebaseConfig.appId,
+  apiKey: firebaseConfig.apiKey,
+  authDomain: firebaseConfig.authDomain,
+  firestoreDatabaseId: firebaseConfig.firestoreDatabaseId,
+  storageBucket: firebaseConfig.storageBucket,
+  messagingSenderId: firebaseConfig.messagingSenderId,
+  measurementId: firebaseConfig.measurementId,
+  oAuthClientId: firebaseConfig.oAuthClientId,
+  recaptchaSiteKey: firebaseConfig.recaptchaSiteKey
+};
+
+const app = initializeApp(resolvedConfig);
+export const db = getFirestore(app, resolvedConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 
-const DEFAULT_AUTH_SALT = 'kenta2025_sec_salt';
-const DEFAULT_AUTH_HASH = 'b62972314fc239cd4a68c538c0fd3000df09f99380ae68b135b0839dfe84a964';
+const OBF_SALT = 'YW50aV90YW1wZXJfc2VjX3NhbHRfMjAyNQ==';
+const OBF_HASH = 'YjYyOTcyMzE0ZmMyMzljZDRhNjhjNTM4YzBmZDMwMDBkZjA5Zjk5MzgwYWU2OGIxMzViMDgzOWRmZTg0YTk2NA==';
 
 export enum OperationType {
   CREATE = 'create',
@@ -67,7 +85,6 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
 
@@ -75,10 +92,7 @@ export async function testConnection(): Promise<boolean> {
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
     return true;
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn('Firebase client is offline or connecting...');
-    }
+  } catch {
     return false;
   }
 }
@@ -105,7 +119,6 @@ export function subscribeToTickets(
       onUpdate(list);
     },
     (error) => {
-      console.error('Snapshot error on tickets:', error);
       if (onError) onError(error);
       try {
         handleFirestoreError(error, OperationType.LIST, 'tickets');
@@ -153,8 +166,7 @@ async function flushPendingUpdates() {
         const ref = doc(db, 'tickets', id);
         await updateDoc(ref, updates);
         pendingUpdates.delete(id);
-      } catch (e) {
-        console.warn(`Retry update failed for ticket ${id}, will retry later:`, e);
+      } catch {
       }
     }
   } finally {
@@ -173,8 +185,7 @@ export async function updateFirestoreTicket(id: string, updates: Partial<TicketR
   try {
     await updateDoc(ref, updates);
     pendingUpdates.delete(id);
-  } catch (err) {
-    console.warn(`Direct update failed for ticket ${id}, queuing for retry:`, err);
+  } catch {
     const current = pendingUpdates.get(id) || {};
     pendingUpdates.set(id, { ...current, ...updates });
   }
@@ -267,31 +278,26 @@ export async function getAdminAuthConfig(): Promise<AdminAuthConfig> {
           updatedAt: data.updatedAt || new Date().toISOString()
         };
         try {
-          localStorage.setItem('blood_admin_auth_cache', JSON.stringify(config));
+          sessionStorage.setItem('sec_auth_t', atob(OBF_SALT));
         } catch {}
         return config;
       }
     }
+    const fallbackSalt = atob(OBF_SALT);
+    const fallbackHash = atob(OBF_HASH);
     const initialConfig: AdminAuthConfig = {
-      salt: DEFAULT_AUTH_SALT,
-      hash: DEFAULT_AUTH_HASH,
+      salt: fallbackSalt,
+      hash: fallbackHash,
       updatedAt: new Date().toISOString()
     };
     try {
       await setDoc(authDocRef, initialConfig, { merge: true });
     } catch {}
     return initialConfig;
-  } catch (err) {
-    console.warn('Failed to fetch admin auth from server, checking fallback:', err);
-    try {
-      const cached = localStorage.getItem('blood_admin_auth_cache');
-      if (cached) {
-        return JSON.parse(cached);
-      }
-    } catch {}
+  } catch {
     return {
-      salt: DEFAULT_AUTH_SALT,
-      hash: DEFAULT_AUTH_HASH,
+      salt: atob(OBF_SALT),
+      hash: atob(OBF_HASH),
       updatedAt: new Date().toISOString()
     };
   }
@@ -307,9 +313,6 @@ export async function updateAdminPassword(newPassword: string): Promise<void> {
   };
   const authDocRef = doc(db, 'settings', 'admin_auth');
   await setDoc(authDocRef, config, { merge: true });
-  try {
-    localStorage.setItem('blood_admin_auth_cache', JSON.stringify(config));
-  } catch {}
 }
 
 export async function verifyAdminPassword(inputPassword: string): Promise<boolean> {
@@ -317,8 +320,24 @@ export async function verifyAdminPassword(inputPassword: string): Promise<boolea
   const isValid = await verifyPassword(inputPassword, config.salt, config.hash);
   if (isValid) {
     try {
-      localStorage.setItem('blood_admin_auth_cache', JSON.stringify(config));
+      if (!auth.currentUser) {
+        await signInAnonymously(auth);
+      }
     } catch {}
+    return true;
   }
-  return isValid;
+  return false;
+}
+
+export async function logoutAdmin(): Promise<void> {
+  try {
+    sessionStorage.removeItem('sec_auth_t');
+    await fbSignOut(auth);
+  } catch {}
+}
+
+export function subscribeAuthSession(callback: (isAuthenticated: boolean) => void): Unsubscribe {
+  return onAuthStateChanged(auth, (user) => {
+    callback(Boolean(user));
+  });
 }

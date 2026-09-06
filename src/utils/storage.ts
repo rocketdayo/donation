@@ -1,6 +1,3 @@
-/**
- * Local Storage persistence & Initial dataset
- */
 import { TicketRecord } from '../types';
 
 export const TIME_SLOTS = [

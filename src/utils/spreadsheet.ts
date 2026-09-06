@@ -1,30 +1,20 @@
-/**
- * Google Spreadsheet Integration & CSV Utilities
- */
 import { TicketRecord, AttendanceStatus, QueueStatus } from '../types';
 
 export const DEFAULT_SHEET_CSV_TEMPLATE = `番号,時間,メアド,名前,属性,状態,くじ引き結果`;
 
-/**
- * 30-minute time slot normalizer:
- * e.g., 9:40 -> 09:30, 9:50 -> 09:30, 9:10 -> 09:00, 9:20 -> 09:00
- */
 export function normalizeTimeSlot(rawSlot: string): { slot: string; originalNote?: string } {
   if (!rawSlot) return { slot: '09:30' };
   const clean = rawSlot.trim();
 
-  // Match HH:mm or H:mm
   const timeMatch = clean.match(/(\d{1,2}):(\d{2})/);
   if (timeMatch) {
     const hours = parseInt(timeMatch[1], 10);
     const minutes = parseInt(timeMatch[2], 10);
 
-    // 30-minute rounding rule: <30 => 00, >=30 => 30
     const slotMinutes = minutes < 30 ? '00' : '30';
     const slotHours = String(hours).padStart(2, '0');
     const slot = `${slotHours}:${slotMinutes}`;
 
-    // Note original minute if it was non-standard
     let originalNote: string | undefined;
     if (minutes !== 0 && minutes !== 30) {
       originalNote = `予約希望時刻: ${clean}`;
@@ -45,13 +35,11 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
   const tickets: TicketRecord[] = [];
   const today = new Date().toISOString().split('T')[0];
 
-  // Auto-detect delimiter: check if lines contain tabs or commas
   const firstLine = lines[0] || '';
   const tabCount = (firstLine.match(/\t/g) || []).length;
   const commaCount = (firstLine.match(/,/g) || []).length;
   const delimiter = tabCount > commaCount ? '\t' : ',';
 
-  // Header inspection
   const headerLine = lines[0].toLowerCase();
   const headers = parseCSVLine(headerLine, delimiter);
 
@@ -64,7 +52,6 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
   let lotteryIdx = headers.findIndex(h => h.includes('くじ') || h.includes('賞') || h.includes('lottery') || h.includes('raffle'));
   let notesIdx = headers.findIndex(h => h.includes('備考') || h.includes('メモ') || h.includes('note'));
 
-  // If 6 or 7 columns exist, ensure F column (index 5) is treated as attendIdx and G column (index 6) as lotteryIdx
   if (attendIdx === -1 && headers.length >= 6) {
     attendIdx = 5;
   }
@@ -72,7 +59,6 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
     lotteryIdx = 6;
   }
 
-  // Positional fallback for standard 5-column formats: [番号, 時間, メアド, 名前, 属性, 状態, くじ引き結果]
   if (headers.length >= 5 && numIdx === -1 && slotIdx === -1 && emailIdx === -1) {
     numIdx = 0;
     slotIdx = 1;
@@ -82,7 +68,6 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
     if (headers.length >= 6 && attendIdx === -1) attendIdx = 5;
     if (headers.length >= 7 && lotteryIdx === -1) lotteryIdx = 6;
   } else if (headers.length === 4 && slotIdx === -1 && emailIdx === -1 && nameIdx === -1) {
-    // 4-column format: [時間, メアド, 名前, 属性]
     slotIdx = 0;
     emailIdx = 1;
     nameIdx = 2;
@@ -99,7 +84,6 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
     const cols = parseCSVLine(line, delimiter);
     if (cols.length < 2) continue;
 
-    // Determine ticket number (1-digit / natural integer from leftmost column or row index)
     let parsedRawNum: number | null = null;
     if (numIdx >= 0 && cols[numIdx]) {
       const p = parseInt(cols[numIdx].replace(/[#\s]/g, ''), 10);
@@ -113,12 +97,10 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
       }
     }
 
-    // Deduplicate ticket number to avoid collision & data overwrite
     let finalNum: number;
     if (parsedRawNum !== null && !usedNumbers.has(parsedRawNum)) {
       finalNum = parsedRawNum;
     } else {
-      // Find the next free natural integer
       while (usedNumbers.has(nextFallbackNumber)) {
         nextFallbackNumber++;
       }
@@ -130,13 +112,11 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
     const name = (nameIdx >= 0 && cols[nameIdx]) ? cols[nameIdx].trim() : `受診者${finalNum}`;
     const email = (emailIdx >= 0 && cols[emailIdx]) ? cols[emailIdx].trim() : '';
     
-    // Time slot normalization (9:40 -> 09:30, 9:50 -> 09:30)
     const rawSlot = (slotIdx >= 0 && cols[slotIdx]) ? cols[slotIdx].trim() : '09:30';
     const { slot: timeSlot, originalNote } = normalizeTimeSlot(rawSlot);
 
     const attribute = (attrIdx >= 0 && cols[attrIdx]) ? cols[attrIdx].trim() : undefined;
     
-    // Column F: 出欠・進行状況 (空欄または未指定の場合は空文字。自動で完了にしない)
     const rawAttendance = (attendIdx >= 0 && cols[attendIdx]) ? cols[attendIdx].trim() : '';
     const lotteryResult = (lotteryIdx >= 0 && cols[lotteryIdx]) ? cols[lotteryIdx].trim() : undefined;
     const parsedNotes = (notesIdx >= 0 && cols[notesIdx]) ? cols[notesIdx].trim() : '';
@@ -171,8 +151,6 @@ export function parseCSVToTickets(csvText: string): TicketRecord[] {
       attendance = 'absent';
       queueStatus = 'absent';
     } else {
-      // F列が空欄、未入力、または「未受付」「待機中」「待機」「欠席」「予約」などの場合：
-      // まだ完了してない人として「待機中（欠席）」にする
       attendance = 'absent';
       queueStatus = 'waiting';
     }
@@ -258,9 +236,6 @@ export function exportTicketsToCSV(tickets: TicketRecord[]): string {
   return [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
 }
 
-/**
- * 7列のスプレッドシート（A:番号, B:時間, C:メアド, D:名前, E:属性, F:状態, G:くじ引き結果）と完全一致するCSVを生成
- */
 export function exportMatching7ColCSV(tickets: TicketRecord[]): string {
   const headers = ['番号', '時間', 'メアド', '名前', '属性', '状態', 'くじ引き結果'];
 
@@ -276,7 +251,6 @@ export function exportMatching7ColCSV(tickets: TicketRecord[]): string {
 
   const rows = tickets.map(t => {
     const isDone = t.queueStatus === 'done' || t.attendance === 'completed';
-    // F列: 完了した人は「完了」、進行中の人はそのステージ（待機中、呼び出し中、問診検査中、採血中、休憩中）
     const statusText = isDone ? '完了' : (queueLabel[t.queueStatus] || '待機中');
 
     return [
@@ -293,9 +267,6 @@ export function exportMatching7ColCSV(tickets: TicketRecord[]): string {
   return [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
 }
 
-/**
- * Google Apps Script (GAS) Webhook 経由でスプレッドシートの F列・G列 を直接更新
- */
 export async function sendUpdateToGoogleSheet(
   webhookUrl: string,
   payload: {
@@ -309,7 +280,6 @@ export async function sendUpdateToGoogleSheet(
   if (!webhookUrl || !webhookUrl.startsWith('http')) return false;
 
   try {
-    // text/plain を使用してブラウザのプリフライト(OPTIONS)を回避
     await fetch(webhookUrl, {
       method: 'POST',
       headers: {
@@ -319,49 +289,29 @@ export async function sendUpdateToGoogleSheet(
       mode: 'no-cors'
     });
     return true;
-  } catch (err) {
-    console.warn('Failed to send status update to Google Sheet webhook:', err);
+  } catch {
     return false;
   }
 }
 
-/**
- * GoogleスプレッドシートにコピペするだけのGoogle Apps Script (GAS) コード
- */
-export const GOOGLE_APPS_SCRIPT_CODE = `/**
- * 献血アプリ → Googleスプレッドシート F列(状態)・G列(くじ結果) 自動更新スクリプト
- *
- * 【導入手順 (2分で完了)】
- * 1. スプレッドシートのメニュー「拡張機能」>「Apps Script」を開きます。
- * 2. 入力欄のコードをすべて削除し、このコードを貼り付けて保存します。
- * 3. 右上の「デプロイ」>「新しいデプロイ」を開きます。
- * 4. 種類の選択(歯車アイコン)で「ウェブアプリ」を選択します。
- * 5. 設定：
- *    - 次のユーザーとして実行: 「自分」
- *    - アクセスできるユーザー: 「全員 (Anyone)」
- * 6. 「デプロイ」を押し、発行された「ウェブアプリのURL」をアプリに貼り付けます。
- */
-function doPost(e) {
+export const GOOGLE_APPS_SCRIPT_CODE = `function doPost(e) {
   try {
     var data = JSON.parse(e.postData.contents);
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
     var values = sheet.getDataRange().getValues();
 
-    // A列の「番号」と一致する行を検索 (1行目は見出し)
     var targetRow = -1;
     for (var i = 1; i < values.length; i++) {
       if (String(values[i][0]).trim() == String(data.ticketNumber).trim()) {
-        targetRow = i + 1; // 1-indexed
+        targetRow = i + 1;
         break;
       }
     }
 
     if (targetRow > 0) {
-      // F列 (列番号6) に現在の状態を記述
       if (data.status) {
         sheet.getRange(targetRow, 6).setValue(data.status);
       }
-      // G列 (列番号7) にくじ引き結果を記述
       if (data.lotteryResult !== undefined && data.lotteryResult !== null && data.lotteryResult !== '') {
         sheet.getRange(targetRow, 7).setValue(data.lotteryResult);
       }
@@ -383,13 +333,9 @@ function doPost(e) {
 }
 `;
 
-/**
- * Fetch spreadsheet CSV with support for Google Sheets, GitHub raw/pages, and CORS proxies
- */
 export async function fetchGoogleSheetCSV(sheetUrl: string): Promise<TicketRecord[]> {
   let csvUrl = sheetUrl.trim();
 
-  // 1. Google Spreadsheet web publish URL: /spreadsheets/d/e/2PACX-.../pub...
   if (csvUrl.includes('/spreadsheets/d/e/')) {
     if (!csvUrl.includes('output=csv')) {
       if (csvUrl.includes('/pubhtml')) {
@@ -401,7 +347,6 @@ export async function fetchGoogleSheetCSV(sheetUrl: string): Promise<TicketRecor
       }
     }
   } else if (csvUrl.includes('/spreadsheets/d/')) {
-    // 2. Standard edit/view URL: /spreadsheets/d/{sheetId}/edit#gid=...
     const match = csvUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
     if (match && match[1] && match[1] !== 'e') {
       const sheetId = match[1];
@@ -411,7 +356,6 @@ export async function fetchGoogleSheetCSV(sheetUrl: string): Promise<TicketRecor
     }
   }
 
-  // Add timestamp cache-buster to bypass any browser or proxy caching
   const cacheBuster = `_t=${Date.now()}`;
   csvUrl += (csvUrl.includes('?') ? '&' : '?') + cacheBuster;
 
@@ -430,7 +374,6 @@ export async function fetchGoogleSheetCSV(sheetUrl: string): Promise<TicketRecor
       throw new Error(`HTTP ${response.status}`);
     }
   } catch {
-    // If direct fetch has CORS restriction or failed, try CORS proxy fallback
     try {
       const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(csvUrl)}&${cacheBuster}`;
       const proxyRes = await fetch(proxyUrl, {
@@ -455,11 +398,9 @@ export async function fetchGoogleSheetCSV(sheetUrl: string): Promise<TicketRecor
     throw new Error('指定されたURLからウェブページ(HTML)が返されました。Google スプレッドシートの「ファイル」→「共有」→「ウェブに公開」で「カンマ区切り値(.csv)」を選んで公開したURLを指定するか、セルをコピーして下記「直接貼り付け」に貼り付けてください。');
   }
 
-  // Parse CSV text
   const tickets = parseCSVToTickets(text);
   if (tickets.length === 0) {
     throw new Error('取得したURLに有効な受診者データ行が見つかりませんでした。');
   }
   return tickets;
 }
-

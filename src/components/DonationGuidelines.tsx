@@ -29,7 +29,6 @@ export const DonationGuidelines: React.FC<DonationGuidelinesProps> = ({
 
   return (
     <div className={`bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-2xs ${className}`}>
-      {/* Calm White Card Header */}
       <div className="p-5 border-b border-slate-100 bg-white">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1.5">
@@ -63,10 +62,8 @@ export const DonationGuidelines: React.FC<DonationGuidelinesProps> = ({
         </div>
       </div>
 
-      {/* Expandable Body with Calm White/Neutral Styling */}
       {isExpanded && (
         <div className="p-5 space-y-5 bg-white">
-          {/* 1. 参加基準・準備 */}
           <section className="space-y-3">
             <div className="flex items-center gap-2 pb-1.5 border-b border-slate-100">
               <ClipboardCheck className="w-4 h-4 text-slate-600" />
@@ -76,7 +73,6 @@ export const DonationGuidelines: React.FC<DonationGuidelinesProps> = ({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {/* 年齢 */}
               <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/80 flex items-start gap-3">
                 <div className="p-2 rounded-lg bg-white border border-slate-200/90 text-slate-700 flex-shrink-0 shadow-2xs">
                   <UserCheck className="w-4 h-4 text-rose-600" />
@@ -92,7 +88,6 @@ export const DonationGuidelines: React.FC<DonationGuidelinesProps> = ({
                 </div>
               </div>
 
-              {/* 体重 */}
               <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/80 flex items-start gap-3">
                 <div className="p-2 rounded-lg bg-white border border-slate-200/90 text-slate-700 flex-shrink-0 shadow-2xs">
                   <Scale className="w-4 h-4 text-rose-600" />
@@ -108,7 +103,6 @@ export const DonationGuidelines: React.FC<DonationGuidelinesProps> = ({
                 </div>
               </div>
 
-              {/* 睡眠 */}
               <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/80 flex items-start gap-3">
                 <div className="p-2 rounded-lg bg-white border border-slate-200/90 text-slate-700 flex-shrink-0 shadow-2xs">
                   <Moon className="w-4 h-4 text-slate-600" />
@@ -124,7 +118,6 @@ export const DonationGuidelines: React.FC<DonationGuidelinesProps> = ({
                 </div>
               </div>
 
-              {/* 食事 */}
               <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/80 flex items-start gap-3">
                 <div className="p-2 rounded-lg bg-white border border-slate-200/90 text-slate-700 flex-shrink-0 shadow-2xs">
                   <Utensils className="w-4 h-4 text-slate-600" />
@@ -142,7 +135,6 @@ export const DonationGuidelines: React.FC<DonationGuidelinesProps> = ({
             </div>
           </section>
 
-          {/* 2. 注意事項 */}
           <section className="space-y-3">
             <div className="flex items-center gap-2 pb-1.5 border-b border-slate-100">
               <AlertTriangle className="w-4 h-4 text-amber-600" />
@@ -152,7 +144,6 @@ export const DonationGuidelines: React.FC<DonationGuidelinesProps> = ({
             </div>
 
             <div className="space-y-2.5">
-              {/* 保護者承諾書 */}
               <div className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/90 flex items-start gap-3">
                 <div className="p-2 rounded-lg bg-white border border-slate-200 text-slate-700 flex-shrink-0 shadow-2xs">
                   <FileText className="w-4 h-4 text-rose-600" />
@@ -168,7 +159,6 @@ export const DonationGuidelines: React.FC<DonationGuidelinesProps> = ({
                 </div>
               </div>
 
-              {/* 運動部の部活動参加不可 */}
               <div className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/90 flex items-start gap-3">
                 <div className="p-2 rounded-lg bg-white border border-slate-200 text-slate-700 flex-shrink-0 shadow-2xs">
                   <Activity className="w-4 h-4 text-amber-600" />
@@ -186,7 +176,6 @@ export const DonationGuidelines: React.FC<DonationGuidelinesProps> = ({
             </div>
           </section>
 
-          {/* 3. メッセージ (申込方法は削除し、落ち着いたメッセージ欄のみ) */}
           <div className="p-3.5 rounded-xl bg-slate-50/60 border border-slate-200/70 text-xs text-slate-600 leading-relaxed flex items-start gap-2.5">
             <Heart className="w-4 h-4 text-rose-500 flex-shrink-0 mt-0.5" />
             <span>
