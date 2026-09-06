@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { KeyRound, Eye, EyeOff, CheckCircle2, AlertCircle, X, Loader2 } from 'lucide-react';
-import { verifyAdminPassword, updateAdminPassword } from '../firebase';
+import { updateAdminFirebasePassword } from '../firebase';
 
 interface ChangePasswordModalProps {
   isOpen: boolean;
@@ -42,15 +42,8 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
 
     setIsUpdating(true);
     try {
-      const isCurrentValid = await verifyAdminPassword(currentPassword);
-      if (!isCurrentValid) {
-        setError('現在のパスワードが正しくありません');
-        setIsUpdating(false);
-        return;
-      }
-
-      await updateAdminPassword(newPassword);
-      setSuccess('パスワードを更新しました（Firebaseへハッシュ化保存完了）');
+      await updateAdminFirebasePassword(currentPassword, newPassword);
+      setSuccess('パスワードを更新しました（Firebase Auth同期完了）');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -58,9 +51,8 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
         setSuccess(null);
         onClose();
       }, 2000);
-    } catch (err) {
-      console.warn('Password update failed:', err);
-      setError('パスワードの更新に失敗しました。通信状態を確認してください。');
+    } catch (err: any) {
+      setError(err?.message || 'パスワードの更新に失敗しました。現在のパスワードをご確認ください。');
     } finally {
       setIsUpdating(false);
     }
@@ -98,7 +90,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
             管理者パスワードの変更
           </h3>
           <p className="text-xs text-slate-500">
-            Firebase暗号化認証の鍵情報を安全に再生成・更新します
+            Firebase Authentication 認証情報をセキュアに更新します
           </p>
         </div>
 
@@ -114,12 +106,12 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 disabled={isUpdating}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 placeholder="現在のパスワード"
-                className="w-full pl-3.5 pr-10 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-rose-700/10 focus:border-rose-700 transition"
+                className="w-full pl-3.5 pr-10 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-rose-700/10 focus:border-rose-700 transition disabled:bg-slate-50"
               />
               <button
                 type="button"
                 onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition cursor-pointer"
                 tabIndex={-1}
               >
                 {showCurrentPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -138,12 +130,12 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 disabled={isUpdating}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="新しいパスワード"
-                className="w-full pl-3.5 pr-10 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-rose-700/10 focus:border-rose-700 transition"
+                className="w-full pl-3.5 pr-10 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-rose-700/10 focus:border-rose-700 transition disabled:bg-slate-50"
               />
               <button
                 type="button"
                 onClick={() => setShowNewPassword(!showNewPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition cursor-pointer"
                 tabIndex={-1}
               >
                 {showNewPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -161,7 +153,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
               disabled={isUpdating}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="新しいパスワードを再入力"
-              className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-rose-700/10 focus:border-rose-700 transition"
+              className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-rose-700/10 focus:border-rose-700 transition disabled:bg-slate-50"
             />
           </div>
 

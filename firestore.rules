@@ -40,9 +40,8 @@ service cloud.firestore {
     }
 
     function isValidSetting(settingId, data) {
-      return (settingId == 'admin_auth' && data.salt is string && data.hash is string)
-        || (settingId == 'spreadsheet_sync' && data.sheetUrl is string)
-        || (settingId in ['admin_auth', 'spreadsheet_sync']);
+      return (settingId == 'spreadsheet_sync' && data.sheetUrl is string)
+        || (settingId in ['spreadsheet_sync']);
     }
 
     match /test/{testId} {

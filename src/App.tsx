@@ -15,6 +15,8 @@ import {
   updateFirestoreTicket, 
   syncAllTicketsToFirestore,
   subscribeToSyncSettings,
+  subscribeAuthSession,
+  logoutAdmin,
   SyncSettings
 } from './firebase';
 import { WifiOff, RefreshCw, CheckCircle2 } from 'lucide-react';
@@ -87,10 +89,19 @@ export const App: React.FC = () => {
       }
     });
 
+    const unsubAuth = subscribeAuthSession((user) => {
+      if (!user) {
+        setIsAdminMode(false);
+      } else {
+        setIsAdminMode(true);
+      }
+    });
+
     return () => {
       clearTimeout(timer);
       unsubscribe();
       unsubSettings();
+      unsubAuth();
     };
   }, [networkSync]);
 
@@ -209,6 +220,11 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleExitAdminMode = async () => {
+    await logoutAdmin();
+    setIsAdminMode(false);
+  };
+
   const waitingCount = tickets.filter(t => t.queueStatus === 'waiting').length;
   const callingCount = tickets.filter(t => t.queueStatus === 'called').length;
   const completedCount = tickets.filter(t => t.queueStatus === 'done').length;
@@ -217,7 +233,13 @@ export const App: React.FC = () => {
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-rose-100 selection:text-rose-800 pb-12">
       <Header
         isAdminMode={isAdminMode}
-        setIsAdminMode={setIsAdminMode}
+        setIsAdminMode={(mode) => {
+          if (!mode) {
+            handleExitAdminMode();
+          } else {
+            setIsAdminMode(true);
+          }
+        }}
         adminTab={adminTab}
         setAdminTab={setAdminTab}
         onOpenSpreadsheet={() => setIsSpreadsheetOpen(true)}
@@ -323,7 +345,7 @@ export const App: React.FC = () => {
       <Footer
         isAdminMode={isAdminMode}
         onOpenAdminAuth={() => setIsAdminAuthOpen(true)}
-        onExitAdminMode={() => setIsAdminMode(false)}
+        onExitAdminMode={handleExitAdminMode}
         isFirebaseConnected={isFirebaseConnected}
         onResetData={handleResetData}
       />

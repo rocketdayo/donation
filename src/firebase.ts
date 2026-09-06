@@ -1,9 +1,14 @@
 import { initializeApp } from 'firebase/app';
 import { 
   getAuth, 
-  signInAnonymously, 
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updatePassword as fbUpdatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
   signOut as fbSignOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  User
 } from 'firebase/auth';
 import { 
   getFirestore, 
@@ -18,9 +23,8 @@ import {
   getDocs
 } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
-import { TicketRecord, AdminAuthConfig } from './types';
+import { TicketRecord } from './types';
 import { INITIAL_TICKETS } from './utils/storage';
-import { generateSalt, hashPassword, verifyPassword, deobfuscate } from './utils/crypto';
 
 const resolvedConfig = {
   projectId: firebaseConfig.projectId,
@@ -39,8 +43,7 @@ const app = initializeApp(resolvedConfig);
 export const db = getFirestore(app, resolvedConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 
-const OBF_SALT = 'YW50aV90YW1wZXJfc2VjX3NhbHRfMjAyNQ==';
-const OBF_HASH = 'YjYyOTcyMzE0ZmMyMzljZDRhNjhjNTM4YzBmZDMwMDBkZjA5Zjk5MzgwYWU2OGIxMzViMDgzOWRmZTg0YTk2NA==';
+export const DEFAULT_ADMIN_EMAIL = 'admin@donation-app.local';
 
 export enum OperationType {
   CREATE = 'create',
@@ -265,79 +268,57 @@ export async function syncAllTicketsToFirestore(tickets: TicketRecord[]): Promis
   }
 }
 
-export async function getAdminAuthConfig(): Promise<AdminAuthConfig> {
-  const authDocRef = doc(db, 'settings', 'admin_auth');
+export async function loginAdminWithFirebaseAuth(
+  password: string, 
+  email: string = DEFAULT_ADMIN_EMAIL
+): Promise<User> {
   try {
-    const snap = await getDocFromServer(authDocRef);
-    if (snap.exists()) {
-      const data = snap.data();
-      if (data && typeof data.salt === 'string' && typeof data.hash === 'string') {
-        const config: AdminAuthConfig = {
-          salt: data.salt,
-          hash: data.hash,
-          updatedAt: data.updatedAt || new Date().toISOString()
-        };
-        try {
-          sessionStorage.setItem('sec_auth_t', atob(OBF_SALT));
-        } catch {}
-        return config;
+    const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
+    return userCredential.user;
+  } catch (err: any) {
+    if (err?.code === 'auth/user-not-found' || err?.code === 'auth/invalid-credential') {
+      try {
+        const createResult = await createUserWithEmailAndPassword(auth, email.trim(), password);
+        return createResult.user;
+      } catch (createErr: any) {
+        if (createErr?.code === 'auth/email-already-in-use') {
+          throw new Error('パスワードが正しくありません。');
+        }
+        throw new Error('管理者アカウント認証に失敗しました。パスワードをご確認ください。');
       }
     }
-    const fallbackSalt = atob(OBF_SALT);
-    const fallbackHash = atob(OBF_HASH);
-    const initialConfig: AdminAuthConfig = {
-      salt: fallbackSalt,
-      hash: fallbackHash,
-      updatedAt: new Date().toISOString()
-    };
-    try {
-      await setDoc(authDocRef, initialConfig, { merge: true });
-    } catch {}
-    return initialConfig;
-  } catch {
-    return {
-      salt: atob(OBF_SALT),
-      hash: atob(OBF_HASH),
-      updatedAt: new Date().toISOString()
-    };
+    if (err?.code === 'auth/wrong-password') {
+      throw new Error('パスワードが正しくありません。');
+    }
+    if (err?.code === 'auth/too-many-requests') {
+      throw new Error('ログイン試行が制限されました。しばらく時間をおいて再試行してください。');
+    }
+    throw new Error('認証に失敗しました。パスワードまたはネットワークをご確認ください。');
   }
 }
 
-export async function updateAdminPassword(newPassword: string): Promise<void> {
-  const salt = generateSalt();
-  const hash = await hashPassword(newPassword, salt);
-  const config: AdminAuthConfig = {
-    salt,
-    hash,
-    updatedAt: new Date().toISOString()
-  };
-  const authDocRef = doc(db, 'settings', 'admin_auth');
-  await setDoc(authDocRef, config, { merge: true });
-}
-
-export async function verifyAdminPassword(inputPassword: string): Promise<boolean> {
-  const config = await getAdminAuthConfig();
-  const isValid = await verifyPassword(inputPassword, config.salt, config.hash);
-  if (isValid) {
-    try {
-      if (!auth.currentUser) {
-        await signInAnonymously(auth);
-      }
-    } catch {}
-    return true;
+export async function updateAdminFirebasePassword(
+  currentPassword: string, 
+  newPassword: string
+): Promise<void> {
+  const currentUser = auth.currentUser;
+  if (!currentUser || !currentUser.email) {
+    throw new Error('ログイン状態が見つかりません。再ログインしてください。');
   }
-  return false;
+
+  const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
+  await reauthenticateWithCredential(currentUser, credential);
+  await fbUpdatePassword(currentUser, newPassword);
 }
 
 export async function logoutAdmin(): Promise<void> {
   try {
-    sessionStorage.removeItem('sec_auth_t');
     await fbSignOut(auth);
   } catch {}
 }
 
-export function subscribeAuthSession(callback: (isAuthenticated: boolean) => void): Unsubscribe {
+export function subscribeAuthSession(callback: (user: User | null) => void): Unsubscribe {
   return onAuthStateChanged(auth, (user) => {
-    callback(Boolean(user));
+    callback(user);
   });
 }

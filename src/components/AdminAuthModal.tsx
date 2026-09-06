@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Lock, Eye, EyeOff, ShieldCheck, AlertCircle, X, Loader2 } from 'lucide-react';
-import { verifyAdminPassword } from '../firebase';
+import { loginAdminWithFirebaseAuth } from '../firebase';
 
 interface AdminAuthModalProps {
   isOpen: boolean;
@@ -31,17 +31,12 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
     setError(null);
 
     try {
-      const isValid = await verifyAdminPassword(password.trim());
-      if (isValid) {
-        setPassword('');
-        setError(null);
-        onSuccess();
-      } else {
-        setError('パスワードが正しくありません');
-      }
-    } catch (err) {
-      console.warn('Auth verification failed:', err);
-      setError('認証処理でエラーが発生しました。通信状態を確認してください。');
+      await loginAdminWithFirebaseAuth(password.trim());
+      setPassword('');
+      setError(null);
+      onSuccess();
+    } catch (err: any) {
+      setError(err?.message || 'パスワードが正しくないか、認証に失敗しました。');
     } finally {
       setIsVerifying(false);
     }
@@ -76,7 +71,7 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
             管理者画面の認証
           </h3>
           <p className="text-xs text-slate-500">
-            Firebaseクラウド認証（暗号化セキュア照合）
+            Firebase Authentication によるセキュア認証
           </p>
         </div>
 
@@ -101,7 +96,7 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition cursor-pointer"
                 tabIndex={-1}
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -138,7 +133,7 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
               ) : (
                 <>
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  認証して移行
+                  認証してログイン
                 </>
               )}
             </button>
@@ -146,7 +141,7 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
         </form>
 
         <p className="text-[11px] text-slate-400 text-center leading-relaxed">
-          ※ Firebase Authentication による安全なクラウド暗号化認証で保護されています。
+          ※ Firebase Authentication により保護されています。
         </p>
       </div>
     </div>
