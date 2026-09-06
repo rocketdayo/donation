@@ -86,6 +86,26 @@
         }
       },
       "required": ["id", "ticketNumber", "name", "email", "timeSlot", "attendance", "queueStatus"]
+    },
+    "AdminAuthConfig": {
+      "title": "AdminAuthConfig",
+      "description": "Hashed password and cryptographic salt for admin dashboard authentication",
+      "type": "object",
+      "properties": {
+        "salt": {
+          "type": "string",
+          "description": "Cryptographic salt hex string"
+        },
+        "hash": {
+          "type": "string",
+          "description": "SHA-256 hashed password with salt"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of last password update"
+        }
+      },
+      "required": ["salt", "hash", "updatedAt"]
     }
   },
   "firestore": {
@@ -94,6 +114,12 @@
         "$ref": "#/entities/TicketRecord"
       },
       "description": "Collection of all blood donation queue tickets and schedules"
+    },
+    "/settings/{settingId}": {
+      "schema": {
+        "$ref": "#/entities/AdminAuthConfig"
+      },
+      "description": "Configuration settings and hashed authentication data"
     }
   }
 }

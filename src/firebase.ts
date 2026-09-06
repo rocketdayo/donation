@@ -8,18 +8,21 @@ import {
   onSnapshot, 
   setDoc, 
   updateDoc, 
-  deleteDoc, 
   writeBatch,
   Unsubscribe,
   getDocs
 } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
-import { TicketRecord } from './types';
+import { TicketRecord, AdminAuthConfig } from './types';
 import { INITIAL_TICKETS } from './utils/storage';
+import { generateSalt, hashPassword, verifyPassword } from './utils/crypto';
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
+
+const DEFAULT_AUTH_SALT = 'kenta2025_sec_salt';
+const DEFAULT_AUTH_HASH = 'b62972314fc239cd4a68c538c0fd3000df09f99380ae68b135b0839dfe84a964';
 
 export enum OperationType {
   CREATE = 'create',
@@ -68,11 +71,9 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   throw new Error(JSON.stringify(errInfo));
 }
 
-// Test Connection on startup
 export async function testConnection(): Promise<boolean> {
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
-    console.log('Firebase connection confirmed.');
     return true;
   } catch (error) {
     if (error instanceof Error && error.message.includes('the client is offline')) {
@@ -82,7 +83,6 @@ export async function testConnection(): Promise<boolean> {
   }
 }
 
-// Subscribe to real-time tickets from Firestore
 export function subscribeToTickets(
   onUpdate: (tickets: TicketRecord[]) => void,
   onError?: (err: Error) => void
@@ -101,7 +101,6 @@ export function subscribeToTickets(
       snapshot.forEach((d) => {
         list.push(d.data() as TicketRecord);
       });
-      // Sort by ticketNumber ascending
       list.sort((a, b) => a.ticketNumber - b.ticketNumber);
       onUpdate(list);
     },
@@ -111,13 +110,11 @@ export function subscribeToTickets(
       try {
         handleFirestoreError(error, OperationType.LIST, 'tickets');
       } catch {
-        // Handled
       }
     }
   );
 }
 
-// Fetch current tickets once from Firestore (for manual re-sync)
 export async function fetchTicketsFromFirestore(): Promise<TicketRecord[]> {
   const ticketsCol = collection(db, 'tickets');
   const snapshot = await getDocs(ticketsCol);
@@ -130,7 +127,6 @@ export async function fetchTicketsFromFirestore(): Promise<TicketRecord[]> {
   return list;
 }
 
-// Seed initial tickets
 export async function seedInitialTickets(): Promise<void> {
   const batch = writeBatch(db);
   for (const t of INITIAL_TICKETS) {
@@ -139,13 +135,11 @@ export async function seedInitialTickets(): Promise<void> {
   }
   try {
     await batch.commit();
-    console.log('Initial sample tickets seeded to Firestore.');
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, 'tickets');
   }
 }
 
-// Offline retry queue for single ticket updates
 const pendingUpdates = new Map<string, Partial<TicketRecord>>();
 let isFlushingQueue = false;
 
@@ -170,27 +164,22 @@ async function flushPendingUpdates() {
 
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => {
-    console.log('Online restored. Flushing pending ticket updates...');
     flushPendingUpdates();
   });
 }
 
-// Update single ticket (with offline safe queuing)
 export async function updateFirestoreTicket(id: string, updates: Partial<TicketRecord>): Promise<void> {
   const ref = doc(db, 'tickets', id);
   try {
     await updateDoc(ref, updates);
-    // If successfully written, clear from retry queue
     pendingUpdates.delete(id);
   } catch (err) {
-    console.warn(`Direct update failed for ticket ${id} (offline/transient), queuing for retry:`, err);
-    // Queue update locally so it syncs once network or firestore reconnects
+    console.warn(`Direct update failed for ticket ${id}, queuing for retry:`, err);
     const current = pendingUpdates.get(id) || {};
     pendingUpdates.set(id, { ...current, ...updates });
   }
 }
 
-// Set ticket (create or overwrite)
 export async function setFirestoreTicket(ticket: TicketRecord): Promise<void> {
   const ref = doc(db, 'tickets', ticket.id);
   try {
@@ -200,7 +189,6 @@ export async function setFirestoreTicket(ticket: TicketRecord): Promise<void> {
   }
 }
 
-// App settings doc interface
 export interface SyncSettings {
   sheetUrl: string;
   writeWebhookUrl?: string;
@@ -210,7 +198,6 @@ export interface SyncSettings {
   lastSyncCount?: number;
 }
 
-// Subscribe to global sync settings
 export function subscribeToSyncSettings(
   onUpdate: (settings: SyncSettings | null) => void
 ): Unsubscribe {
@@ -224,7 +211,6 @@ export function subscribeToSyncSettings(
   });
 }
 
-// Save global sync settings
 export async function saveSyncSettings(settings: SyncSettings): Promise<void> {
   const settingsRef = doc(db, 'settings', 'spreadsheet_sync');
   try {
@@ -234,14 +220,11 @@ export async function saveSyncSettings(settings: SyncSettings): Promise<void> {
   }
 }
 
-// Replace all tickets (e.g. from CSV / Spreadsheet import or Reset)
-// Uses chunked batches of 400 operations to respect Firestore's 500 max limit safely
 export async function syncAllTicketsToFirestore(tickets: TicketRecord[]): Promise<void> {
   try {
     const existingSnap = await getDocs(collection(db, 'tickets'));
     const operations: Array<{ type: 'delete' | 'set'; ref: any; data?: TicketRecord }> = [];
 
-    // Delete docs not in new tickets
     const newIds = new Set(tickets.map(t => t.id));
     existingSnap.forEach(d => {
       if (!newIds.has(d.id)) {
@@ -249,12 +232,10 @@ export async function syncAllTicketsToFirestore(tickets: TicketRecord[]): Promis
       }
     });
 
-    // Set all new tickets
     for (const t of tickets) {
       operations.push({ type: 'set', ref: doc(db, 'tickets', t.id), data: t });
     }
 
-    // Commit operations in chunks of 400
     const CHUNK_SIZE = 400;
     for (let i = 0; i < operations.length; i += CHUNK_SIZE) {
       const chunk = operations.slice(i, i + CHUNK_SIZE);
@@ -271,4 +252,73 @@ export async function syncAllTicketsToFirestore(tickets: TicketRecord[]): Promis
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, 'tickets');
   }
+}
+
+export async function getAdminAuthConfig(): Promise<AdminAuthConfig> {
+  const authDocRef = doc(db, 'settings', 'admin_auth');
+  try {
+    const snap = await getDocFromServer(authDocRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data && typeof data.salt === 'string' && typeof data.hash === 'string') {
+        const config: AdminAuthConfig = {
+          salt: data.salt,
+          hash: data.hash,
+          updatedAt: data.updatedAt || new Date().toISOString()
+        };
+        try {
+          localStorage.setItem('blood_admin_auth_cache', JSON.stringify(config));
+        } catch {}
+        return config;
+      }
+    }
+    const initialConfig: AdminAuthConfig = {
+      salt: DEFAULT_AUTH_SALT,
+      hash: DEFAULT_AUTH_HASH,
+      updatedAt: new Date().toISOString()
+    };
+    try {
+      await setDoc(authDocRef, initialConfig, { merge: true });
+    } catch {}
+    return initialConfig;
+  } catch (err) {
+    console.warn('Failed to fetch admin auth from server, checking fallback:', err);
+    try {
+      const cached = localStorage.getItem('blood_admin_auth_cache');
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch {}
+    return {
+      salt: DEFAULT_AUTH_SALT,
+      hash: DEFAULT_AUTH_HASH,
+      updatedAt: new Date().toISOString()
+    };
+  }
+}
+
+export async function updateAdminPassword(newPassword: string): Promise<void> {
+  const salt = generateSalt();
+  const hash = await hashPassword(newPassword, salt);
+  const config: AdminAuthConfig = {
+    salt,
+    hash,
+    updatedAt: new Date().toISOString()
+  };
+  const authDocRef = doc(db, 'settings', 'admin_auth');
+  await setDoc(authDocRef, config, { merge: true });
+  try {
+    localStorage.setItem('blood_admin_auth_cache', JSON.stringify(config));
+  } catch {}
+}
+
+export async function verifyAdminPassword(inputPassword: string): Promise<boolean> {
+  const config = await getAdminAuthConfig();
+  const isValid = await verifyPassword(inputPassword, config.salt, config.hash);
+  if (isValid) {
+    try {
+      localStorage.setItem('blood_admin_auth_cache', JSON.stringify(config));
+    } catch {}
+  }
+  return isValid;
 }

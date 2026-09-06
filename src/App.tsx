@@ -30,12 +30,14 @@ import { TicketDetailModal } from './components/TicketDetailModal';
 import { DonationGuidelinesModal } from './components/DonationGuidelinesModal';
 import { Footer } from './components/Footer';
 import { AdminAuthModal } from './components/AdminAuthModal';
+import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { LoadingScreen } from './components/LoadingScreen';
 
 export const App: React.FC = () => {
   const [tickets, setTickets] = useState<TicketRecord[]>(() => loadTicketsFromStorage());
   const [isAdminMode, setIsAdminMode] = useState<boolean>(false);
   const [isAdminAuthOpen, setIsAdminAuthOpen] = useState<boolean>(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState<boolean>(false);
   const [adminTab, setAdminTab] = useState<AdminTabType>('queue');
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isFirebaseConnected, setIsFirebaseConnected] = useState<boolean>(false);
@@ -212,7 +214,7 @@ export const App: React.FC = () => {
   const completedCount = tickets.filter(t => t.queueStatus === 'done').length;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-rose-100 selection:text-rose-900 pb-12">
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-rose-100 selection:text-rose-800 pb-12">
       <Header
         isAdminMode={isAdminMode}
         setIsAdminMode={setIsAdminMode}
@@ -220,6 +222,7 @@ export const App: React.FC = () => {
         setAdminTab={setAdminTab}
         onOpenSpreadsheet={() => setIsSpreadsheetOpen(true)}
         onOpenGuidelines={() => setIsGuidelinesOpen(true)}
+        onOpenChangePassword={() => setIsChangePasswordOpen(true)}
         soundEnabled={soundEnabled}
         setSoundEnabled={setSoundEnabled}
         notificationPermission={notificationPermission}
@@ -237,10 +240,10 @@ export const App: React.FC = () => {
 
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5">
         {networkSync.syncMessage && (
-          <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-2xl flex items-center justify-between text-xs shadow-xs animate-in fade-in slide-in-from-top-1">
+          <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl flex items-center justify-between text-xs shadow-xs animate-in fade-in slide-in-from-top-1">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-700 flex-shrink-0" />
-              <span className="font-bold text-emerald-900">{networkSync.syncMessage}</span>
+              <span className="font-bold text-emerald-800">{networkSync.syncMessage}</span>
             </div>
             {networkSync.lastSyncedAt && (
               <span className="text-[11px] text-emerald-700 font-medium">
@@ -251,7 +254,7 @@ export const App: React.FC = () => {
         )}
 
         {!networkSync.isOnline && (
-          <div className="mb-4 p-3.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl flex items-center justify-between text-xs animate-in fade-in">
+          <div className="mb-4 p-3.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl flex items-center justify-between text-xs animate-in fade-in">
             <div className="flex items-center gap-2.5">
               <WifiOff className="w-4 h-4 text-amber-700 flex-shrink-0" />
               <div>
@@ -351,6 +354,11 @@ export const App: React.FC = () => {
           setIsAdminAuthOpen(false);
           setIsAdminMode(true);
         }}
+      />
+
+      <ChangePasswordModal
+        isOpen={isChangePasswordOpen}
+        onClose={() => setIsChangePasswordOpen(false)}
       />
     </div>
   );

@@ -9,7 +9,8 @@ import {
   User, 
   ClipboardCheck, 
   Gift, 
-  RefreshCw 
+  RefreshCw,
+  KeyRound 
 } from 'lucide-react';
 import { sounds } from '../utils/audio';
 import { AdminTabType } from '../types';
@@ -22,6 +23,7 @@ interface HeaderProps {
   setAdminTab: (tab: AdminTabType) => void;
   onOpenSpreadsheet: () => void;
   onOpenGuidelines: () => void;
+  onOpenChangePassword?: () => void;
   soundEnabled: boolean;
   setSoundEnabled: (enabled: boolean) => void;
   notificationPermission: NotificationPermission;
@@ -44,6 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
   setAdminTab,
   onOpenSpreadsheet,
   onOpenGuidelines,
+  onOpenChangePassword,
   soundEnabled,
   setSoundEnabled,
   waitingCount,
@@ -172,6 +175,18 @@ export const Header: React.FC<HeaderProps> = ({
                   <FileSpreadsheet className="w-3.5 h-3.5" />
                   <span>名簿読込・結果出力</span>
                 </button>
+
+                {onOpenChangePassword && (
+                  <button
+                    type="button"
+                    onClick={onOpenChangePassword}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition cursor-pointer"
+                    title="管理者パスワードの変更（Firebase保存）"
+                  >
+                    <KeyRound className="w-3.5 h-3.5 text-slate-600" />
+                    <span className="hidden sm:inline">PW変更</span>
+                  </button>
+                )}
 
                 <button
                   type="button"
