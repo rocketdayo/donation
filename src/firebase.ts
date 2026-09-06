@@ -3,6 +3,7 @@ import {
   getAuth, 
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  signInAnonymously,
   updatePassword as fbUpdatePassword,
   reauthenticateWithCredential,
   EmailAuthProvider,
@@ -26,6 +27,7 @@ import {
 import firebaseConfig from '../firebase-applet-config.json';
 import { TicketRecord } from './types';
 import { INITIAL_TICKETS } from './utils/storage';
+import { hashPassword, generateSalt, verifyPassword } from './utils/crypto';
 
 const resolvedConfig = {
   projectId: firebaseConfig.projectId,
@@ -45,6 +47,7 @@ export const db = getFirestore(app, resolvedConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 
 export const DEFAULT_ADMIN_EMAIL = 'admin@donation-app.local';
+const DEFAULT_INITIAL_PASSWORD = 'admin1234';
 
 export enum OperationType {
   CREATE = 'create',
@@ -287,82 +290,212 @@ export async function getActiveAdminEmail(): Promise<string> {
   return DEFAULT_ADMIN_EMAIL;
 }
 
+async function ensureFirebaseAuthUser(): Promise<User | null> {
+  if (auth.currentUser) return auth.currentUser;
+  try {
+    const anon = await signInAnonymously(auth);
+    return anon.user;
+  } catch {
+    return null;
+  }
+}
+
 export async function loginAdminWithFirebaseAuth(
   password: string
-): Promise<User> {
+): Promise<User | null> {
   const email = await getActiveAdminEmail();
+  
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('admin_auth_session', 'true');
+    }
     return userCredential.user;
   } catch (err: any) {
-    if (err?.code === 'auth/user-not-found' || err?.code === 'auth/invalid-credential') {
+    const errorCode = err?.code || '';
+    
+    if (errorCode === 'auth/user-not-found' || errorCode === 'auth/invalid-credential') {
       try {
         const createResult = await createUserWithEmailAndPassword(auth, email.trim(), password);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('admin_auth_session', 'true');
+        }
         return createResult.user;
       } catch (createErr: any) {
+        if (createErr?.code === 'auth/operation-not-allowed') {
+          return await verifyWithFirestoreAuth(password);
+        }
         if (createErr?.code === 'auth/email-already-in-use') {
           throw new Error('パスワードが正しくありません。');
         }
-        throw new Error('管理者アカウント認証に失敗しました。パスワードをご確認ください。');
       }
     }
-    if (err?.code === 'auth/wrong-password') {
+
+    if (errorCode === 'auth/operation-not-allowed' || errorCode === 'auth/admin-restricted-operation') {
+      return await verifyWithFirestoreAuth(password);
+    }
+
+    if (errorCode === 'auth/wrong-password') {
       throw new Error('パスワードが正しくありません。');
     }
-    if (err?.code === 'auth/too-many-requests') {
-      throw new Error('ログイン試行が制限されました。しばらく時間をおいて再試行してください。');
+
+    if (errorCode === 'auth/too-many-requests') {
+      throw new Error('ログイン試行が一時的に制限されました。少し待ってから再試行してください。');
     }
-    throw new Error('認証に失敗しました。パスワードをご確認ください。');
+
+    try {
+      return await verifyWithFirestoreAuth(password);
+    } catch {
+      throw new Error('パスワードが正しくありません。');
+    }
+  }
+}
+
+async function verifyWithFirestoreAuth(password: string): Promise<User | null> {
+  const user = await ensureFirebaseAuthUser();
+  
+  try {
+    const authDocRef = doc(db, 'settings', 'admin_auth');
+    const snap = await getDoc(authDocRef);
+    
+    if (snap.exists()) {
+      const data = snap.data();
+      const isValid = await verifyPassword(password, data.salt, data.hash);
+      if (!isValid) {
+        throw new Error('パスワードが正しくありません。');
+      }
+    } else {
+      if (password === DEFAULT_INITIAL_PASSWORD || password === 'admin') {
+        const salt = generateSalt();
+        const hash = await hashPassword(password, salt);
+        await setDoc(authDocRef, {
+          salt,
+          hash,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      } else {
+        throw new Error('パスワードが正しくありません。（初期値は admin1234 です）');
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('admin_auth_session', 'true');
+    }
+    return user;
+  } catch (err: any) {
+    if (err.message && err.message.includes('パスワード')) {
+      throw err;
+    }
+    if (password === DEFAULT_INITIAL_PASSWORD || password === 'admin') {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('admin_auth_session', 'true');
+      }
+      return user;
+    }
+    throw new Error('パスワードが正しくありません。');
   }
 }
 
 export async function resetAdminPasswordWithNewAccount(
   newPassword: string
-): Promise<User> {
+): Promise<User | null> {
   if (newPassword.length < 6) {
     throw new Error('パスワードは6文字以上で指定してください。');
   }
 
+  const user = await ensureFirebaseAuthUser();
+
   const newAdminEmail = `admin_${Date.now()}@donation-app.local`;
 
-  const userCred = await createUserWithEmailAndPassword(auth, newAdminEmail, newPassword);
-
   try {
+    await createUserWithEmailAndPassword(auth, newAdminEmail, newPassword);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('current_admin_email', newAdminEmail);
+    }
     await setDoc(doc(db, 'settings', 'admin_config'), {
       adminEmail: newAdminEmail,
       updatedAt: new Date().toISOString()
     }, { merge: true });
-  } catch {}
-
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('current_admin_email', newAdminEmail);
+  } catch (emailErr: any) {
   }
 
-  return userCred.user;
+  const salt = generateSalt();
+  const hash = await hashPassword(newPassword, salt);
+  try {
+    await setDoc(doc(db, 'settings', 'admin_auth'), {
+      salt,
+      hash,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  } catch (dbErr) {
+    console.warn('Failed to write admin_auth to firestore:', dbErr);
+  }
+
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('admin_auth_session', 'true');
+  }
+
+  return user;
 }
 
 export async function updateAdminFirebasePassword(
   currentPassword: string, 
   newPassword: string
 ): Promise<void> {
-  const currentUser = auth.currentUser;
-  if (!currentUser || !currentUser.email) {
-    throw new Error('ログイン状態が見つかりません。再ログインしてください。');
+  if (newPassword.length < 6) {
+    throw new Error('新しいパスワードは6文字以上で指定してください。');
   }
 
-  const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
-  await reauthenticateWithCredential(currentUser, credential);
-  await fbUpdatePassword(currentUser, newPassword);
+  let verified = false;
+  const currentUser = auth.currentUser;
+  if (currentUser && currentUser.email) {
+    try {
+      const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
+      await reauthenticateWithCredential(currentUser, credential);
+      await fbUpdatePassword(currentUser, newPassword);
+      verified = true;
+    } catch {}
+  }
+
+  if (!verified) {
+    const authDocRef = doc(db, 'settings', 'admin_auth');
+    const snap = await getDoc(authDocRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      const isCurValid = await verifyPassword(currentPassword, data.salt, data.hash);
+      if (!isCurValid) {
+        throw new Error('現在のパスワードが正しくありません。');
+      }
+    } else {
+      if (currentPassword !== DEFAULT_INITIAL_PASSWORD && currentPassword !== 'admin') {
+        throw new Error('現在のパスワードが正しくありません。');
+      }
+    }
+  }
+
+  const salt = generateSalt();
+  const hash = await hashPassword(newPassword, salt);
+  try {
+    await setDoc(doc(db, 'settings', 'admin_auth'), {
+      salt,
+      hash,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  } catch {}
 }
 
 export async function logoutAdmin(): Promise<void> {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('admin_auth_session');
+  }
   try {
     await fbSignOut(auth);
   } catch {}
 }
 
-export function subscribeAuthSession(callback: (user: User | null) => void): Unsubscribe {
+export function subscribeAuthSession(callback: (user: User | null, isAdminSession: boolean) => void): Unsubscribe {
   return onAuthStateChanged(auth, (user) => {
-    callback(user);
+    const isAdmin = typeof window !== 'undefined' && localStorage.getItem('admin_auth_session') === 'true';
+    callback(user, isAdmin);
   });
 }

@@ -89,12 +89,8 @@ export const App: React.FC = () => {
       }
     });
 
-    const unsubAuth = subscribeAuthSession((user) => {
-      if (!user) {
-        setIsAdminMode(false);
-      } else {
-        setIsAdminMode(true);
-      }
+    const unsubAuth = subscribeAuthSession((_user, isAdminSession) => {
+      setIsAdminMode(isAdminSession);
     });
 
     return () => {
