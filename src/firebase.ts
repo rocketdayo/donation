@@ -20,7 +20,8 @@ import {
   updateDoc, 
   writeBatch,
   Unsubscribe,
-  getDocs
+  getDocs,
+  getDoc
 } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 import { TicketRecord } from './types';
@@ -268,10 +269,28 @@ export async function syncAllTicketsToFirestore(tickets: TicketRecord[]): Promis
   }
 }
 
+export async function getActiveAdminEmail(): Promise<string> {
+  try {
+    const configSnap = await getDoc(doc(db, 'settings', 'admin_config'));
+    if (configSnap.exists() && configSnap.data()?.adminEmail) {
+      const email = configSnap.data().adminEmail;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('current_admin_email', email);
+      }
+      return email;
+    }
+  } catch {}
+  if (typeof window !== 'undefined') {
+    const local = localStorage.getItem('current_admin_email');
+    if (local) return local;
+  }
+  return DEFAULT_ADMIN_EMAIL;
+}
+
 export async function loginAdminWithFirebaseAuth(
-  password: string, 
-  email: string = DEFAULT_ADMIN_EMAIL
+  password: string
 ): Promise<User> {
+  const email = await getActiveAdminEmail();
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
     return userCredential.user;
@@ -293,8 +312,33 @@ export async function loginAdminWithFirebaseAuth(
     if (err?.code === 'auth/too-many-requests') {
       throw new Error('ログイン試行が制限されました。しばらく時間をおいて再試行してください。');
     }
-    throw new Error('認証に失敗しました。パスワードまたはネットワークをご確認ください。');
+    throw new Error('認証に失敗しました。パスワードをご確認ください。');
   }
+}
+
+export async function resetAdminPasswordWithNewAccount(
+  newPassword: string
+): Promise<User> {
+  if (newPassword.length < 6) {
+    throw new Error('パスワードは6文字以上で指定してください。');
+  }
+
+  const newAdminEmail = `admin_${Date.now()}@donation-app.local`;
+
+  const userCred = await createUserWithEmailAndPassword(auth, newAdminEmail, newPassword);
+
+  try {
+    await setDoc(doc(db, 'settings', 'admin_config'), {
+      adminEmail: newAdminEmail,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  } catch {}
+
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('current_admin_email', newAdminEmail);
+  }
+
+  return userCred.user;
 }
 
 export async function updateAdminFirebasePassword(
