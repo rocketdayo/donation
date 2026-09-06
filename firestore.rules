@@ -1,23 +1,16 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Global Safety Net: default-deny
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Helper functions
     function isValidId(id) {
       return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
     function incoming() {
       return request.resource.data;
-    }
-
-    function existing() {
-      return resource.data;
     }
 
     function isValidTicket(data) {
@@ -46,17 +39,21 @@ service cloud.firestore {
         && (!('safetyChecklist' in data) || data.safetyChecklist is map);
     }
 
-    // Connection test document
+    function isValidSetting(settingId, data) {
+      return (settingId == 'admin_auth' && data.salt is string && data.hash is string)
+        || (settingId == 'spreadsheet_sync' && data.sheetUrl is string)
+        || (settingId in ['admin_auth', 'spreadsheet_sync']);
+    }
+
     match /test/{testId} {
-      allow read, write: if true;
+      allow read, write: if isValidId(testId);
     }
 
-    // App settings and sync configuration
     match /settings/{settingId} {
-      allow read, write: if true;
+      allow read: if isValidId(settingId);
+      allow write: if isValidId(settingId) && isValidSetting(settingId, incoming());
     }
 
-    // Tickets collection
     match /tickets/{ticketId} {
       allow get, list: if true;
       allow create: if isValidId(ticketId) && isValidTicket(incoming());

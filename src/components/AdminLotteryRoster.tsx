@@ -3,7 +3,10 @@ import {
   Gift, 
   Search, 
   ChevronDown, 
-  FileSpreadsheet
+  FileSpreadsheet,
+  CheckCircle2,
+  AlertCircle,
+  ShieldCheck
 } from 'lucide-react';
 import { TicketRecord } from '../types';
 
@@ -31,7 +34,7 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
   onOpenSpreadsheet
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [lotteryFilter, setLotteryFilter] = useState<'all' | 'pending' | 'completed'>('all');
+  const [lotteryFilter, setLotteryFilter] = useState<'all' | 'pending' | 'completed' | 'safety_pending'>('all');
 
   const filteredTickets = useMemo(() => {
     return tickets
@@ -55,6 +58,9 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
         if (lotteryFilter === 'completed') {
           return Boolean(t.lotteryResult && t.lotteryResult !== '未抽選');
         }
+        if (lotteryFilter === 'safety_pending') {
+          return !t.safetyChecklist?.confirmedAt;
+        }
 
         return true;
       });
@@ -69,6 +75,8 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
     const completedCount = tickets.filter(isTicketCompleted).length;
     const pendingCount = total - completedCount;
     const lotteryDoneCount = tickets.filter(t => t.lotteryResult && t.lotteryResult !== '未抽選').length;
+    const safetyConfirmedCount = tickets.filter(t => Boolean(t.safetyChecklist?.confirmedAt)).length;
+    const safetyPendingCount = total - safetyConfirmedCount;
 
     const countByPrize: Record<string, number> = {
       '一等': 0,
@@ -90,6 +98,8 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
       completedCount,
       pendingCount,
       lotteryDoneCount,
+      safetyConfirmedCount,
+      safetyPendingCount,
       countByPrize
     };
   }, [tickets]);
@@ -188,6 +198,15 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
           <div className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 font-medium">
             欠席（未完了）: <span className="font-bold text-slate-800">{stats.pendingCount}名</span>
           </div>
+          <div className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 font-medium flex items-center gap-1">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+            <span>安全確認:</span> <span className="font-bold text-emerald-900">{stats.safetyConfirmedCount}名済</span>
+            {stats.safetyPendingCount > 0 && (
+              <span className="text-amber-800 font-bold bg-amber-100 px-1.5 py-0.5 rounded text-[10px]">
+                未{stats.safetyPendingCount}名
+              </span>
+            )}
+          </div>
           <div className="px-2.5 py-1 rounded-lg bg-purple-50 border border-purple-200 text-purple-900 font-medium">
             くじ引き済: <span className="font-bold text-purple-950">{stats.lotteryDoneCount}名</span> / {stats.total}名
           </div>
@@ -259,6 +278,19 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
           >
             抽選完了のみ
           </button>
+          <button
+            type="button"
+            onClick={() => setLotteryFilter('safety_pending')}
+            className={`px-2.5 py-1.5 rounded-lg font-medium transition cursor-pointer flex items-center gap-1 ${
+              lotteryFilter === 'safety_pending'
+                ? 'bg-amber-600 text-white'
+                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
+            }`}
+            title="安全セルフチェックがまだ済んでいない受診者のみを表示"
+          >
+            <AlertCircle className="w-3 h-3" />
+            <span>安全未確認のみ</span>
+          </button>
         </div>
       </div>
 
@@ -271,6 +303,7 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
                 <th className="py-3 px-4 w-24 border-r border-slate-200/80">時間</th>
                 <th className="py-3 px-4 min-w-[140px] border-r border-slate-200/80">名前</th>
                 <th className="py-3 px-4 w-24 border-r border-slate-200/80">属性</th>
+                <th className="py-3 px-4 w-32 text-center border-r border-slate-200/80">安全確認</th>
                 <th className="py-3 px-4 w-28 text-center border-r border-slate-200/80">出欠</th>
                 <th className="py-3 px-4 min-w-[160px]">くじ引きの結果</th>
               </tr>
@@ -278,7 +311,7 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
             <tbody className="divide-y divide-slate-200/80 text-xs sm:text-sm">
               {filteredTickets.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
+                  <td colSpan={7} className="py-12 text-center text-slate-400">
                     該当する受診者データがありません
                   </td>
                 </tr>
@@ -286,6 +319,7 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
                 filteredTickets.map((ticket) => {
                   const displayTime = ticket.arrivedAt || ticket.timeSlot;
                   const currentResult = ticket.lotteryResult || '';
+                  const isSafeConfirmed = Boolean(ticket.safetyChecklist?.confirmedAt);
 
                   return (
                     <tr 
@@ -306,6 +340,26 @@ export const AdminLotteryRoster: React.FC<AdminLotteryRosterProps> = ({
 
                       <td className="py-3 px-4 text-slate-700 border-r border-slate-200/80 whitespace-nowrap">
                         {ticket.attribute || '生徒'}
+                      </td>
+
+                      <td className="py-2.5 px-4 text-center border-r border-slate-200/80 whitespace-nowrap">
+                        {isSafeConfirmed ? (
+                          <span 
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200"
+                            title={`確認日時: ${ticket.safetyChecklist?.confirmedAt}`}
+                          >
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            <span>確認済</span>
+                          </span>
+                        ) : (
+                          <span 
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300"
+                            title="献血前の安全セルフチェックがまだ完了していません"
+                          >
+                            <AlertCircle className="w-3 h-3 text-amber-700" />
+                            <span>未確認</span>
+                          </span>
+                        )}
                       </td>
 
                       <td className="py-2.5 px-4 text-center border-r border-slate-200/80 whitespace-nowrap">

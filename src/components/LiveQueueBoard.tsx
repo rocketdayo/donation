@@ -16,7 +16,8 @@ import {
   X, 
   PauseCircle, 
   FileText, 
-  AlertCircle 
+  AlertCircle,
+  ShieldCheck
 } from 'lucide-react';
 import { sounds } from '../utils/audio';
 import { NotificationManager } from '../utils/notifications';
@@ -38,6 +39,9 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
   const filteredTickets = selectedSlot === 'all' 
     ? tickets 
     : tickets.filter(t => t.timeSlot === selectedSlot);
+
+  const safetyConfirmedCount = filteredTickets.filter(t => Boolean(t.safetyChecklist?.confirmedAt)).length;
+  const safetyPendingCount = filteredTickets.length - safetyConfirmedCount;
 
   const callingList = filteredTickets.filter(t => t.queueStatus === 'called');
   const waitingList = filteredTickets.filter(t => t.queueStatus === 'waiting');
@@ -215,6 +219,17 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-600">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="text-slate-500">安全確認:</span>
+              <span className="font-bold text-emerald-700">{safetyConfirmedCount}名済</span>
+              {safetyPendingCount > 0 && (
+                <span className="font-bold text-amber-700 bg-amber-100/80 px-1.5 py-0.5 rounded text-[10px]">
+                  未{safetyPendingCount}名
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-600">
@@ -524,20 +539,45 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
               waitingList.map((ticket) => (
                 <div 
                   key={ticket.id}
-                  className="p-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white transition flex items-center justify-between"
+                  className="p-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white transition flex items-center justify-between gap-2"
                 >
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className="font-bold text-xs text-slate-800">#{ticket.ticketNumber}</span>
+                      <button
+                        type="button"
+                        onClick={() => onOpenTicketDetail && onOpenTicketDetail(ticket)}
+                        className="font-bold text-xs text-slate-800 hover:text-rose-700 transition cursor-pointer"
+                      >
+                        #{ticket.ticketNumber}
+                      </button>
                       <span className="text-[10px] text-slate-400">{ticket.timeSlot}</span>
                     </div>
-                    <div className="text-xs font-bold text-slate-800">{ticket.name}</div>
+                    <button
+                      type="button"
+                      onClick={() => onOpenTicketDetail && onOpenTicketDetail(ticket)}
+                      className="text-xs font-bold text-slate-800 hover:text-rose-700 text-left truncate block max-w-full cursor-pointer"
+                    >
+                      {ticket.name}
+                    </button>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {ticket.safetyChecklist?.confirmedAt ? (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                          チェック済
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                          <AlertCircle className="w-2.5 h-2.5 text-amber-700" />
+                          未確認
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <button
                     type="button"
                     onClick={() => handleCallTicket(ticket)}
-                    className="px-2.5 py-1.5 rounded-lg bg-rose-700 hover:bg-rose-800 text-white text-[11px] font-bold shadow-xs active:scale-95 transition flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1.5 rounded-lg bg-rose-700 hover:bg-rose-800 text-white text-[11px] font-bold shadow-xs active:scale-95 transition flex items-center gap-1 cursor-pointer flex-shrink-0"
                   >
                     <Megaphone className="w-3 h-3" />
                     呼出
@@ -566,17 +606,34 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
               interviewList.map((ticket) => (
                 <div 
                   key={ticket.id}
-                  className="p-3 rounded-xl border border-blue-200 bg-blue-50/40 transition flex items-center justify-between"
+                  className="p-3 rounded-xl border border-blue-200 bg-blue-50/40 transition flex items-center justify-between gap-2"
                 >
-                  <div>
-                    <div className="font-bold text-xs text-slate-800">#{ticket.ticketNumber} {ticket.name}</div>
-                    <div className="text-[10px] text-slate-500">{ticket.donationType || '400mL'}</div>
+                  <div className="min-w-0 flex-1">
+                    <button
+                      type="button"
+                      onClick={() => onOpenTicketDetail && onOpenTicketDetail(ticket)}
+                      className="font-bold text-xs text-slate-800 hover:text-rose-700 text-left truncate block max-w-full cursor-pointer"
+                    >
+                      #{ticket.ticketNumber} {ticket.name}
+                    </button>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-[10px] text-slate-500">{ticket.donationType || '400mL'}</span>
+                      {ticket.safetyChecklist?.confirmedAt ? (
+                        <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
+                          ✓ 安全確認済
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-bold text-amber-800 bg-amber-100 px-1 py-0.2 rounded border border-amber-300">
+                          ⚠️ 安全未確認
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <button
                     type="button"
                     onClick={() => handleStageTransition(ticket, 'donating')}
-                    className="px-2.5 py-1.5 rounded-lg bg-rose-700 hover:bg-rose-800 text-white text-[11px] font-bold shadow-xs transition flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1.5 rounded-lg bg-rose-700 hover:bg-rose-800 text-white text-[11px] font-bold shadow-xs transition flex items-center gap-1 cursor-pointer flex-shrink-0"
                   >
                     <Syringe className="w-3 h-3" />
                     採血へ
@@ -605,17 +662,23 @@ export const LiveQueueBoard: React.FC<LiveQueueBoardProps> = ({
               donatingList.map((ticket) => (
                 <div 
                   key={ticket.id}
-                  className="p-3 rounded-xl border border-rose-200 bg-rose-50/40 transition flex items-center justify-between"
+                  className="p-3 rounded-xl border border-rose-200 bg-rose-50/40 transition flex items-center justify-between gap-2"
                 >
-                  <div>
-                    <div className="font-bold text-xs text-slate-800">#{ticket.ticketNumber} {ticket.name}</div>
+                  <div className="min-w-0 flex-1">
+                    <button
+                      type="button"
+                      onClick={() => onOpenTicketDetail && onOpenTicketDetail(ticket)}
+                      className="font-bold text-xs text-slate-800 hover:text-rose-700 text-left truncate block max-w-full cursor-pointer"
+                    >
+                      #{ticket.ticketNumber} {ticket.name}
+                    </button>
                     <div className="text-[10px] text-slate-500">{ticket.bloodType ? `${ticket.bloodType}型` : ''} ({ticket.donationType || '400mL'})</div>
                   </div>
 
                   <button
                     type="button"
                     onClick={() => handleStageTransition(ticket, 'resting')}
-                    className="px-2.5 py-1.5 rounded-lg bg-teal-700 hover:bg-teal-800 text-white text-[11px] font-bold shadow-xs transition flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1.5 rounded-lg bg-teal-700 hover:bg-teal-800 text-white text-[11px] font-bold shadow-xs transition flex items-center gap-1 cursor-pointer flex-shrink-0"
                   >
                     <Coffee className="w-3 h-3" />
                     休憩へ
